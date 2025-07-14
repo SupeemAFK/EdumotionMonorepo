@@ -26,7 +26,8 @@ export default function Navbar() {
           <span className="font-bold text-lg">Edumotion</span>
         </div>
         {/* Desktop Menu */}
-        <div className="hidden md:flex items-center gap-6">
+        {session?.user ? (
+          <div className="hidden md:flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-800 transition">
             <FaUser className="w-4 h-4" />
             <span>Student</span>
@@ -41,14 +42,23 @@ export default function Navbar() {
           </div>
           <button onClick={signout} className="cursor-pointer px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition">Logout</button>
         </div>
+        ) : (
+          <div className="hidden md:flex items-center gap-6">
+            <button onClick={() => router.push('/auth')} className="cursor-pointer px-4 py-2 bg-blue-500 text-white rounded hover:bg-red-600 transition">Signin</button>
+          </div>
+        )}
         {/* Hamburger Icon */}
-        <button
-          className="md:hidden flex items-center justify-center p-2 rounded hover:bg-gray-800"
-          onClick={() => setMenuOpen((open) => !open)}
-          aria-label="Toggle menu"
-        >
-          {menuOpen ? <HiX size={24} /> : <HiMenu size={24} />}
-        </button>
+        {session?.user ? (
+          <button
+            className="md:hidden flex items-center justify-center p-2 rounded hover:bg-gray-800"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label="Toggle menu"
+          >
+            {menuOpen ? <HiX size={24} /> : <HiMenu size={24} />}
+          </button>
+        ) : (
+          <button onClick={() => router.push('/auth')} className="md:hidden cursor-pointer px-4 py-2 bg-blue-500 text-white rounded hover:bg-red-600 transition">Signin</button>
+        )}
       </div>
       {/* Mobile Menu */}
       {menuOpen && (
