@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { FaPlay, FaPause, FaCheck, FaLock, FaArrowLeft, FaBookOpen, FaClock, FaUser } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import SkillLearningNode from "./SkillLearningNode";
+import LearningWebcam from "./LearningWebcam";
 
 interface SkillLearningFlowProps {
   skillId: string;
@@ -337,12 +338,12 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
           </ReactFlow>
         </div>
 
-        {/* Current Step Info */}
+        {/* Current Step Info and Webcam */}
         {currentNode && (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="w-80 bg-gray-900/95 backdrop-blur-sm border-l border-gray-700/50 p-4 overflow-y-auto"
+            className="w-96 bg-gray-900/95 backdrop-blur-sm border-l border-gray-700/50 p-4 overflow-y-auto space-y-6"
           >
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2">
@@ -390,6 +391,18 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
               <FaCheck className="text-sm" />
               Mark as Complete
             </motion.button>
+
+            {/* Learning Webcam */}
+            <LearningWebcam
+              skillId={skillId}
+              currentStep={currentNode.id}
+              onProgressUpdate={(progress) => {
+                console.log('Learning progress:', progress);
+              }}
+              onAnalysisResult={(result) => {
+                console.log('Analysis result:', result);
+              }}
+            />
           </motion.div>
         )}
       </div>
