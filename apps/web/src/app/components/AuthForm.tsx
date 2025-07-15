@@ -57,12 +57,22 @@ export default function AuthForm() {
     setShowConfirmPassword(false);
   };
 
-  const onSubmitSignup: SubmitHandler<SignUpSchemaType> = (data) => {
-    console.log(data);
+  const onSubmitSignup: SubmitHandler<SignUpSchemaType> = async (formData) => {
+    const { data, error } = await authClient.signUp.email({
+      email: formData.email,
+      password: formData.password,
+      name: formData.name,
+      image: "",
+    });
+    console.log(data, error)
   };
 
-  const onSubmitSignin: SubmitHandler<SignInSchemaType> = (data) => {
-    console.log(data);
+  const onSubmitSignin: SubmitHandler<SignInSchemaType> = async (formData) => {
+    const { data, error } = await authClient.signIn.email({
+      email: formData.email,
+      password: formData.password,
+    });
+    console.log(data, error)
   }
 
   const signinWithGoogle = async () => {
