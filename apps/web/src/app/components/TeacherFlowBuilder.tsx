@@ -256,7 +256,7 @@ function FlowBuilder() {
   }, [deletePressed, deleteSelected]);
 
   return (
-    <div className="w-screen h-screen bg-gray-900 flex">
+    <div className="w-full h-full bg-transparent flex">
       <div className="flex-1 relative" ref={reactFlowWrapper}>
         <ReactFlow
           colorMode="dark"
@@ -275,15 +275,16 @@ function FlowBuilder() {
           panOnScroll
           zoomOnScroll
           defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-          className="bg-gray-900"
+          className="bg-transparent"
         >
-          <Background color="#374151" gap={20} />
+          <Background color="#0f172a" gap={20} />
           <Controls className="react-flow__controls" />
           
           {/* Floating Toolbar */}
           {(selectedNodeId || selectedEdgeId) && (
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg px-4 py-2 flex items-center gap-2 z-50">
-              <span className="text-white text-sm">
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-xl px-4 py-2 flex items-center gap-3 z-50 animate-in slide-in-from-top-2 duration-300">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-white text-sm font-medium">
                 {selectedNodeId 
                   ? `Node selected: ${nodes.find(n => n.id === selectedNodeId)?.data.label}`
                   : 'Edge selected'
@@ -293,7 +294,7 @@ function FlowBuilder() {
               <span className="text-gray-400 text-xs">Press Delete to remove</span>
               <button
                 onClick={confirmDelete}
-                className="ml-2 px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
+                className="ml-2 px-3 py-1.5 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors duration-200"
               >
                 Delete
               </button>
@@ -304,7 +305,7 @@ function FlowBuilder() {
         {/* Context Menu */}
         {contextMenu.visible && (
           <div
-            className="absolute bg-gray-800 border border-gray-600 rounded-lg shadow-lg z-50 py-2 min-w-48"
+            className="absolute bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-xl z-50 py-2 min-w-48 animate-in fade-in-0 slide-in-from-top-1 duration-200"
             style={{
               left: contextMenu.x,
               top: contextMenu.y,
@@ -319,11 +320,12 @@ function FlowBuilder() {
                     setSidebarOpen(true);
                     setContextMenu({ x: 0, y: 0, visible: false });
                   }}
-                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors"
+                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-800 transition-colors duration-200 flex items-center gap-3"
                 >
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                   Configure Node
                 </button>
-                <div className="border-t border-gray-600 my-1"></div>
+                <div className="border-t border-gray-700 my-1 mx-2"></div>
                 <button
                   onClick={() => {
                     if (contextMenu.nodeId) {
@@ -332,9 +334,10 @@ function FlowBuilder() {
                     }
                     setContextMenu({ x: 0, y: 0, visible: false });
                   }}
-                  className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-700 transition-colors"
+                  className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 transition-colors duration-200 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={nodes.find(n => n.id === contextMenu.nodeId)?.data.isStartNode}
                 >
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                   Delete Node
                 </button>
               </>
@@ -343,14 +346,16 @@ function FlowBuilder() {
               <>
                 <button
                   onClick={() => createNewNode('normal')}
-                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors"
+                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-800 transition-colors duration-200 flex items-center gap-3"
                 >
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   Add Step Node
                 </button>
                 <button
                   onClick={() => createNewNode('end')}
-                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors"
+                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-800 transition-colors duration-200 flex items-center gap-3"
                 >
+                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                   Add End Node
                 </button>
               </>
@@ -360,24 +365,32 @@ function FlowBuilder() {
 
         {/* Delete Confirmation Dialog */}
         {showDeleteConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold text-white mb-4">Confirm Deletion</h3>
-              <p className="text-gray-300 mb-6">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in-0 duration-300">
+            <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700/50 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl animate-in slide-in-from-bottom-4 duration-300">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-white">Confirm Deletion</h3>
+              </div>
+              <p className="text-gray-300 mb-6 leading-relaxed">
                 Are you sure you want to delete this {selectedNodeId ? 'node' : 'edge'}? 
                 {selectedNodeId && ' All connected edges will also be removed.'}
-                This action cannot be undone.
+                <br />
+                <span className="text-red-400 font-medium">This action cannot be undone.</span>
               </p>
               <div className="flex justify-end gap-3">
                 <button
                   onClick={handleCancelDelete}
-                  className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+                  className="px-4 py-2 border border-gray-600 text-gray-300 rounded-md hover:bg-gray-800 transition-colors duration-200"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmDelete}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors duration-200"
                 >
                   Delete
                 </button>
@@ -401,7 +414,7 @@ function FlowBuilder() {
 export default function TeacherFlowBuilder() {
   return (
     <ReactFlowProvider>
-      <div className="w-screen h-screen">
+      <div className="w-full h-full">
         <FlowBuilder />
       </div>
     </ReactFlowProvider>

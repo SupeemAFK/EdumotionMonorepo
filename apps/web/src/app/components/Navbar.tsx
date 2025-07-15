@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { HiMenu, HiX } from "react-icons/hi";
-import { FaUser, FaChalkboardTeacher } from "react-icons/fa";
+import { FaUser, FaChalkboardTeacher, FaVideo } from "react-icons/fa";
 import { authClient } from "@/lib/auth-client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -35,6 +35,10 @@ export default function Navbar() {
           <Link href="/teacher" className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-800 transition">
             <FaChalkboardTeacher className="w-4 h-4" />
             <span>Teacher</span>
+          </Link>
+          <Link href="/video-editor" className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-800 transition">
+            <FaVideo className="w-4 h-4" />
+            <span>Video Editor</span>
           </Link>
           <div className="flex items-center gap-3">
             <img src={session?.user.image ? session.user.image : "/placeholderProfile.png"} alt="Profile" className="h-8 w-8 rounded-full" />
@@ -70,6 +74,10 @@ export default function Navbar() {
           <Link href="/teacher" className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-800 transition">
             <FaChalkboardTeacher className="w-4 h-4" />
             <span>Teacher</span>
+          </Link>
+          <Link href="/video-editor" className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-800 transition">
+            <FaVideo className="w-4 h-4" />
+            <span>Video Editor</span>
           </Link>
           <div className="flex items-center gap-3">
             <img src={session?.user.image ? session.user.image : "/placeholderProfile.png"} alt="Profile" className="h-8 w-8 rounded-full border" />
