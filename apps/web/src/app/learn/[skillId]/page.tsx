@@ -1,14 +1,12 @@
+'use client'
+
 import Navbar from "../../components/Navbar";
 import SkillLearningFlow from "../../components/SkillLearningFlow";
+import { useParams } from 'next/navigation'
 
-interface SkillLearningPageProps {
-  params: {
-    skillId: string;
-  };
-}
+export default function SkillLearningPage() {
+  const params = useParams<{ skillId: string; }>()
 
-export default async function SkillLearningPage({ params }: SkillLearningPageProps) {
-  const { skillId } = await params;
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 relative overflow-hidden">
       {/* Decorative background elements */}
@@ -29,7 +27,7 @@ export default async function SkillLearningPage({ params }: SkillLearningPagePro
       
       <Navbar />
       <div className="relative z-10 pt-16 h-screen overflow-hidden">
-        <SkillLearningFlow skillId={skillId} />
+        <SkillLearningFlow skillId={params.skillId} />
       </div>
     </div>
   );
