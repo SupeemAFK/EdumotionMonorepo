@@ -42,34 +42,34 @@ interface SkillNodeData extends Record<string, unknown> {
 const getSkillData = (skillId: string) => {
   const skillsData: Record<string, any> = {
     "1": {
-      title: "JavaScript Fundamentals",
-      description: "Learn the basics of JavaScript programming language",
-      creator: "John Doe",
+      title: "Basic Circuit Building",
+      description: "Learn to build simple electronic circuits with LEDs, resistors, and batteries",
+      creator: "Dr. Sarah Electronics",
       totalDuration: "2h 30m",
       nodes: [
         {
           id: "1",
           position: { x: 0, y: 0 },
           data: {
-            label: "Introduction to JavaScript",
-            description: "Welcome! Learn what JavaScript is and why it's important.",
+            label: "Circuit Basics",
+            description: "Learn about basic electronic components: resistors, LEDs, and batteries",
             video: "https://www.w3schools.com/html/mov_bbb.mp4",
             status: "completed",
             duration: "15 min",
             videoSegments: [
               {
                 id: "seg1",
-                title: "What is JavaScript?",
+                title: "Understanding Resistors",
                 startTime: 0,
                 endTime: 300,
-                description: "Overview of JavaScript and its uses"
+                description: "What resistors do and how to read their values"
               },
               {
                 id: "seg2",
-                title: "Setting up development environment",
+                title: "LED Basics",
                 startTime: 300,
                 endTime: 600,
-                description: "How to set up your coding environment"
+                description: "How LEDs work and their polarity"
               }
             ]
           },
@@ -79,25 +79,25 @@ const getSkillData = (skillId: string) => {
           id: "2",
           position: { x: 0, y: 400 },
           data: {
-            label: "Variables and Data Types",
-            description: "Learn about variables, strings, numbers, and booleans.",
+            label: "First LED Circuit",
+            description: "Build your first simple LED circuit with a battery and resistor",
             video: "https://www.w3schools.com/html/movie.mp4",
             status: "completed",
             duration: "25 min",
             videoSegments: [
               {
                 id: "seg3",
-                title: "Declaring Variables",
+                title: "Circuit Assembly",
                 startTime: 0,
                 endTime: 400,
-                description: "How to declare and use variables"
+                description: "Step-by-step circuit assembly on breadboard"
               },
               {
                 id: "seg4",
-                title: "Data Types",
+                title: "Testing Your Circuit",
                 startTime: 400,
                 endTime: 800,
-                description: "Understanding different data types"
+                description: "How to test and troubleshoot your circuit"
               }
             ]
           },
@@ -107,32 +107,32 @@ const getSkillData = (skillId: string) => {
           id: "3",
           position: { x: 0, y: 800 },
           data: {
-            label: "Functions and Scope",
-            description: "Understanding functions and variable scope.",
+            label: "Series & Parallel",
+            description: "Experiment with series and parallel LED configurations",
             video: "https://www.w3schools.com/html/mov_bbb.mp4",
             status: "current",
             duration: "30 min",
             videoSegments: [
               {
                 id: "seg5",
-                title: "Function Declaration",
+                title: "Series Circuits",
                 startTime: 0,
                 endTime: 500,
-                description: "How to declare and call functions"
+                description: "Building LEDs in series configuration"
               },
               {
                 id: "seg6",
-                title: "Function Parameters",
+                title: "Parallel Circuits",
                 startTime: 500,
                 endTime: 1000,
-                description: "Working with function parameters"
+                description: "Building LEDs in parallel configuration"
               },
               {
                 id: "seg7",
-                title: "Variable Scope",
+                title: "Comparing Configurations",
                 startTime: 1000,
                 endTime: 1500,
-                description: "Understanding global and local scope"
+                description: "Understanding differences between series and parallel"
               }
             ]
           },
@@ -142,8 +142,8 @@ const getSkillData = (skillId: string) => {
           id: "4",
           position: { x: 0, y: 1200 },
           data: {
-            label: "Control Structures",
-            description: "Learn about if statements, loops, and conditionals.",
+            label: "Switch Control",
+            description: "Add switches to control your LED circuits interactively",
             video: "https://www.w3schools.com/html/movie.mp4",
             status: "available",
             duration: "35 min"
@@ -154,8 +154,8 @@ const getSkillData = (skillId: string) => {
           id: "5",
           position: { x: 0, y: 1600 },
           data: {
-            label: "Objects and Arrays",
-            description: "Working with complex data structures.",
+            label: "Variable Resistors",
+            description: "Use potentiometers to control LED brightness",
             video: "https://www.w3schools.com/html/mov_bbb.mp4",
             status: "locked",
             duration: "40 min"
@@ -166,8 +166,8 @@ const getSkillData = (skillId: string) => {
           id: "6",
           position: { x: 0, y: 2000 },
           data: {
-            label: "DOM Manipulation",
-            description: "Learn to interact with web pages using JavaScript.",
+            label: "Final Project",
+            description: "Create a multi-LED display with different patterns and controls",
             video: "https://www.w3schools.com/html/movie.mp4",
             status: "locked",
             duration: "45 min"
@@ -213,6 +213,313 @@ const getSkillData = (skillId: string) => {
           type: "smoothstep",
           source: "5", 
           target: "6", 
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          animated: true 
+        }
+      ]
+    },
+    "2": {
+      title: "Guitar Chord Mastery",
+      description: "Master essential guitar chords and strumming patterns",
+      creator: "Jake Martinez",
+      totalDuration: "3h 15m",
+      nodes: [
+        {
+          id: "1",
+          position: { x: 0, y: 0 },
+          data: {
+            label: "Guitar Basics",
+            description: "Learn guitar anatomy, proper posture, and hand positioning",
+            video: "https://www.w3schools.com/html/mov_bbb.mp4",
+            status: "completed",
+            duration: "20 min",
+            videoSegments: [
+              {
+                id: "seg1",
+                title: "Guitar Anatomy",
+                startTime: 0,
+                endTime: 400,
+                description: "Understanding parts of the guitar"
+              },
+              {
+                id: "seg2",
+                title: "Proper Posture",
+                startTime: 400,
+                endTime: 800,
+                description: "How to hold the guitar correctly"
+              }
+            ]
+          },
+          type: "skillLearningNode",
+        },
+        {
+          id: "2",
+          position: { x: 0, y: 400 },
+          data: {
+            label: "First Chords",
+            description: "Learn your first three chords: G, C, and D",
+            video: "https://www.w3schools.com/html/movie.mp4",
+            status: "completed",
+            duration: "30 min",
+            videoSegments: [
+              {
+                id: "seg3",
+                title: "G Major Chord",
+                startTime: 0,
+                endTime: 500,
+                description: "Finger placement for G major chord"
+              },
+              {
+                id: "seg4",
+                title: "C Major Chord",
+                startTime: 500,
+                endTime: 1000,
+                description: "Finger placement for C major chord"
+              },
+              {
+                id: "seg5",
+                title: "D Major Chord",
+                startTime: 1000,
+                endTime: 1500,
+                description: "Finger placement for D major chord"
+              }
+            ]
+          },
+          type: "skillLearningNode",
+        },
+        {
+          id: "3",
+          position: { x: 0, y: 800 },
+          data: {
+            label: "Chord Transitions",
+            description: "Practice smooth transitions between chords",
+            video: "https://www.w3schools.com/html/mov_bbb.mp4",
+            status: "current",
+            duration: "35 min",
+            videoSegments: [
+              {
+                id: "seg6",
+                title: "G to C Transition",
+                startTime: 0,
+                endTime: 600,
+                description: "Smooth transition from G to C chord"
+              },
+              {
+                id: "seg7",
+                title: "C to D Transition",
+                startTime: 600,
+                endTime: 1200,
+                description: "Smooth transition from C to D chord"
+              }
+            ]
+          },
+          type: "skillLearningNode",
+        },
+        {
+          id: "4",
+          position: { x: 0, y: 1200 },
+          data: {
+            label: "Strumming Patterns",
+            description: "Learn basic strumming patterns and rhythm",
+            video: "https://www.w3schools.com/html/movie.mp4",
+            status: "available",
+            duration: "40 min"
+          },
+          type: "skillLearningNode",
+        },
+        {
+          id: "5",
+          position: { x: 0, y: 1600 },
+          data: {
+            label: "Your First Song",
+            description: "Play your first complete song using learned chords",
+            video: "https://www.w3schools.com/html/mov_bbb.mp4",
+            status: "locked",
+            duration: "30 min"
+          },
+          type: "skillLearningNode",
+        }
+      ],
+      edges: [
+        { 
+          id: "e1-2", 
+          type: "smoothstep",
+          source: "1", 
+          target: "2", 
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          animated: true 
+        },
+        { 
+          id: "e2-3", 
+          type: "smoothstep",
+          source: "2", 
+          target: "3", 
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          animated: true 
+        },
+        { 
+          id: "e3-4", 
+          type: "smoothstep",
+          source: "3", 
+          target: "4", 
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          animated: true 
+        },
+        { 
+          id: "e4-5", 
+          type: "smoothstep",
+          source: "4", 
+          target: "5", 
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          animated: true 
+        }
+      ]
+    },
+    "3": {
+      title: "Digital Art Fundamentals",
+      description: "Create stunning digital artwork using drawing tablets and software",
+      creator: "Emma Creative",
+      totalDuration: "4h 45m",
+      nodes: [
+        {
+          id: "1",
+          position: { x: 0, y: 0 },
+          data: {
+            label: "Digital Art Setup",
+            description: "Set up your drawing tablet and digital art software",
+            video: "https://www.w3schools.com/html/mov_bbb.mp4",
+            status: "completed",
+            duration: "25 min",
+            videoSegments: [
+              {
+                id: "seg1",
+                title: "Tablet Installation",
+                startTime: 0,
+                endTime: 500,
+                description: "Installing and configuring your drawing tablet"
+              },
+              {
+                id: "seg2",
+                title: "Software Overview",
+                startTime: 500,
+                endTime: 1000,
+                description: "Introduction to digital art software interface"
+              }
+            ]
+          },
+          type: "skillLearningNode",
+        },
+        {
+          id: "2",
+          position: { x: 0, y: 400 },
+          data: {
+            label: "Basic Brush Techniques",
+            description: "Learn fundamental brush strokes and pressure sensitivity",
+            video: "https://www.w3schools.com/html/movie.mp4",
+            status: "completed",
+            duration: "35 min",
+            videoSegments: [
+              {
+                id: "seg3",
+                title: "Brush Selection",
+                startTime: 0,
+                endTime: 600,
+                description: "Choosing the right brushes for different effects"
+              },
+              {
+                id: "seg4",
+                title: "Pressure Sensitivity",
+                startTime: 600,
+                endTime: 1200,
+                description: "Using pressure to control line weight and opacity"
+              }
+            ]
+          },
+          type: "skillLearningNode",
+        },
+        {
+          id: "3",
+          position: { x: 0, y: 800 },
+          data: {
+            label: "Color Theory",
+            description: "Understanding colors, palettes, and color harmony",
+            video: "https://www.w3schools.com/html/mov_bbb.mp4",
+            status: "current",
+            duration: "40 min",
+            videoSegments: [
+              {
+                id: "seg5",
+                title: "Color Wheel",
+                startTime: 0,
+                endTime: 700,
+                description: "Understanding the color wheel and relationships"
+              },
+              {
+                id: "seg6",
+                title: "Creating Palettes",
+                startTime: 700,
+                endTime: 1400,
+                description: "How to create harmonious color palettes"
+              }
+            ]
+          },
+          type: "skillLearningNode",
+        },
+        {
+          id: "4",
+          position: { x: 0, y: 1200 },
+          data: {
+            label: "Shading & Lighting",
+            description: "Learn to create depth with shadows and highlights",
+            video: "https://www.w3schools.com/html/movie.mp4",
+            status: "available",
+            duration: "45 min"
+          },
+          type: "skillLearningNode",
+        },
+        {
+          id: "5",
+          position: { x: 0, y: 1600 },
+          data: {
+            label: "Your First Artwork",
+            description: "Create your first complete digital artwork",
+            video: "https://www.w3schools.com/html/mov_bbb.mp4",
+            status: "locked",
+            duration: "60 min"
+          },
+          type: "skillLearningNode",
+        }
+      ],
+      edges: [
+        { 
+          id: "e1-2", 
+          type: "smoothstep",
+          source: "1", 
+          target: "2", 
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          animated: true 
+        },
+        { 
+          id: "e2-3", 
+          type: "smoothstep",
+          source: "2", 
+          target: "3", 
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          animated: true 
+        },
+        { 
+          id: "e3-4", 
+          type: "smoothstep",
+          source: "3", 
+          target: "4", 
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          animated: true 
+        },
+        { 
+          id: "e4-5", 
+          type: "smoothstep",
+          source: "4", 
+          target: "5", 
           markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
           animated: true 
         }

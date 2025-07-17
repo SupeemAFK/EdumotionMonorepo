@@ -19,8 +19,8 @@ const initialNodes: Node[] = [
     id: "1",
     position: { x: 0, y: 0 },
     data: {
-      label: "Step 1: Introduction",
-      description: "Welcome! Watch this intro to get started.",
+      label: "Step 1: Circuit Basics",
+      description: "Learn about basic electronic components: resistors, LEDs, and batteries",
       video: "https://www.w3schools.com/html/mov_bbb.mp4",
       status: "done"
     },
@@ -30,8 +30,8 @@ const initialNodes: Node[] = [
     id: "2",
     position: { x: 0, y: 500 },
     data: {
-      label: "Step 2: Learn Basics",
-      description: "Learn the basics in this step.",
+      label: "Step 2: First LED Circuit",
+      description: "Build your first simple LED circuit with a battery and resistor",
       video: "https://www.w3schools.com/html/movie.mp4",
       status: "done"
     },
@@ -41,8 +41,8 @@ const initialNodes: Node[] = [
     id: "3",
     position: { x: 0, y: 1000 },
     data: {
-      label: "Step 3: Practice",
-      description: "Practice what you learned.",
+      label: "Step 3: Series & Parallel",
+      description: "Experiment with series and parallel LED configurations",
       video: "https://www.w3schools.com/html/mov_bbb.mp4",
       status: "current"
     },
@@ -52,8 +52,8 @@ const initialNodes: Node[] = [
     id: "4",
     position: { x: 0, y: 1500 },
     data: {
-      label: "Step 4: Mastery",
-      description: "Master the skill and complete the course!",
+      label: "Step 4: Switch Control",
+      description: "Add switches to control your LED circuits interactively",
       video: "https://www.w3schools.com/html/movie.mp4",
         status: "not-done"
     },
@@ -63,8 +63,8 @@ const initialNodes: Node[] = [
     id: "5",
     position: { x: 0, y: 2000 },
     data: {
-      label: "Step 5: Mastery",
-      description: "Master the skill and complete the course!",
+      label: "Step 5: Final Project",
+      description: "Create a multi-LED display with different patterns and controls",
       video: "https://www.w3schools.com/html/movie.mp4",
     status: "not-done"
     },

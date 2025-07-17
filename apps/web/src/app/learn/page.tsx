@@ -1,14 +1,11 @@
 'use client'
 
-import Navbar from "../../components/Navbar";
-import SkillLearningFlow from "../../components/SkillLearningFlow";
-import { useParams } from 'next/navigation'
+import Navbar from "../components/Navbar";
+import SkillLearningFlow from "../components/SkillLearningFlow";
 
-export default function SkillLearningPage() {
-  const params = useParams<{ skillId: string; }>()
-  
-  // Default to circuit building (skillId "1") if no skillId is provided
-  const skillId = params.skillId || "1";
+export default function LearnPage() {
+  // Default to circuit building skill (skillId "1")
+  const skillId = "1";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 relative overflow-hidden">

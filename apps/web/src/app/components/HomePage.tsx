@@ -22,81 +22,133 @@ interface Skill {
 const mockSkills: Skill[] = [
   {
     id: "1",
-    title: "JavaScript Fundamentals",
-    description: "Learn the basics of JavaScript programming language with hands-on examples and interactive exercises",
-    creator: "John Doe",
+    title: "Basic Circuit Building",
+    description: "Learn to build simple electronic circuits with LEDs, resistors, and batteries through hands-on projects",
+    creator: "Dr. Sarah Electronics",
     duration: "2h 30m",
     difficulty: "Beginner",
     rating: 4.8,
     thumbnail: "/placeholder.jpg",
-    tags: ["Programming", "Web Development", "JavaScript"],
+    tags: ["Electronics", "Circuits", "Hands-on"],
     steps: 8,
     enrolled: 1234
   },
   {
     id: "2",
-    title: "React Component Design",
-    description: "Master the art of creating reusable and maintainable React components with modern patterns",
-    creator: "Jane Smith",
+    title: "Guitar Chord Mastery",
+    description: "Master essential guitar chords and strumming patterns with interactive video lessons and practice exercises",
+    creator: "Jake Martinez",
     duration: "3h 15m",
-    difficulty: "Intermediate",
+    difficulty: "Beginner",
     rating: 4.9,
     thumbnail: "/placeholder.jpg",
-    tags: ["React", "Frontend", "Components"],
+    tags: ["Music", "Guitar", "Chords"],
     steps: 12,
     enrolled: 856
   },
   {
     id: "3",
-    title: "Python Data Analysis",
-    description: "Analyze data using Python libraries like Pandas and NumPy with real-world projects",
-    creator: "Mike Johnson",
+    title: "Digital Art Fundamentals",
+    description: "Create stunning digital artwork using drawing tablets and software with step-by-step tutorials",
+    creator: "Emma Creative",
     duration: "4h 45m",
-    difficulty: "Advanced",
+    difficulty: "Intermediate",
     rating: 4.7,
     thumbnail: "/placeholder.jpg",
-    tags: ["Python", "Data Science", "Analytics"],
+    tags: ["Art", "Digital Drawing", "Creative"],
     steps: 15,
     enrolled: 678
   },
   {
     id: "4",
-    title: "UI/UX Design Principles",
-    description: "Learn fundamental design principles for creating user-friendly and beautiful interfaces",
-    creator: "Sarah Wilson",
+    title: "Chemistry Lab Experiments",
+    description: "Conduct safe and exciting chemistry experiments to understand chemical reactions and properties",
+    creator: "Prof. Michael Lab",
     duration: "2h 10m",
-    difficulty: "Beginner",
+    difficulty: "Intermediate",
     rating: 4.6,
     thumbnail: "/placeholder.jpg",
-    tags: ["Design", "UI/UX", "Principles"],
+    tags: ["Science", "Chemistry", "Experiments"],
     steps: 6,
     enrolled: 943
   },
   {
     id: "5",
-    title: "Node.js Backend Development",
-    description: "Build scalable backend applications using Node.js and Express with best practices",
-    creator: "Alex Brown",
-    duration: "5h 20m",
-    difficulty: "Intermediate",
+    title: "Home Workout Routines",
+    description: "Build strength and fitness with guided workout routines that require no equipment",
+    creator: "Coach Alex Fit",
+    duration: "1h 20m",
+    difficulty: "Beginner",
     rating: 4.8,
     thumbnail: "/placeholder.jpg",
-    tags: ["Node.js", "Backend", "API"],
-    steps: 18,
+    tags: ["Fitness", "Exercise", "Health"],
+    steps: 10,
     enrolled: 567
   },
   {
     id: "6",
-    title: "Machine Learning Basics",
-    description: "Introduction to machine learning concepts and practical implementation with Python",
-    creator: "Dr. Emily Chen",
+    title: "Arduino Programming",
+    description: "Learn to program Arduino microcontrollers to create interactive electronic projects and robots",
+    creator: "Dr. Tech Innovator",
     duration: "6h 30m",
     difficulty: "Advanced",
     rating: 4.9,
     thumbnail: "/placeholder.jpg",
-    tags: ["Machine Learning", "AI", "Python"],
+    tags: ["Electronics", "Programming", "Arduino"],
     steps: 20,
     enrolled: 789
+  },
+  {
+    id: "7",
+    title: "Watercolor Painting Basics",
+    description: "Discover the art of watercolor painting with techniques for blending, layering, and creating beautiful landscapes",
+    creator: "Artist Luna Colors",
+    duration: "3h 45m",
+    difficulty: "Beginner",
+    rating: 4.7,
+    thumbnail: "/placeholder.jpg",
+    tags: ["Art", "Painting", "Watercolor"],
+    steps: 14,
+    enrolled: 432
+  },
+  {
+    id: "8",
+    title: "Physics Lab Mechanics",
+    description: "Explore fundamental physics concepts through hands-on experiments with motion, forces, and energy",
+    creator: "Dr. Physics Pro",
+    duration: "4h 00m",
+    difficulty: "Advanced",
+    rating: 4.8,
+    thumbnail: "/placeholder.jpg",
+    tags: ["Science", "Physics", "Mechanics"],
+    steps: 16,
+    enrolled: 321
+  },
+  {
+    id: "9",
+    title: "Yoga for Beginners",
+    description: "Learn basic yoga poses and breathing techniques to improve flexibility, strength, and mindfulness",
+    creator: "Yogi Zen Master",
+    duration: "2h 30m",
+    difficulty: "Beginner",
+    rating: 4.9,
+    thumbnail: "/placeholder.jpg",
+    tags: ["Fitness", "Yoga", "Wellness"],
+    steps: 12,
+    enrolled: 876
+  },
+  {
+    id: "10",
+    title: "3D Printing Design",
+    description: "Design and create your own 3D printed objects using CAD software and 3D printing techniques",
+    creator: "Designer Tech Maker",
+    duration: "5h 15m",
+    difficulty: "Intermediate",
+    rating: 4.6,
+    thumbnail: "/placeholder.jpg",
+    tags: ["Technology", "3D Design", "Making"],
+    steps: 18,
+    enrolled: 654
   }
 ];
 
@@ -106,7 +158,7 @@ const HomePage: React.FC = () => {
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const router = useRouter();
 
-  const categories = ["All", "Programming", "Design", "Data Science", "Web Development", "AI/ML"];
+  const categories = ["All", "Electronics", "Music", "Art", "Science", "Fitness", "Technology"];
 
   const filteredSkills = mockSkills.filter(skill => {
     const matchesSearch = skill.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -165,12 +217,12 @@ const HomePage: React.FC = () => {
               <FaTrophy className="text-3xl text-yellow-500 animate-pulse-soft" />
             </div>
             <h1 className="text-5xl font-bold text-gray-800 mb-4 leading-tight">
-              Discover Amazing
+              Master Real-World
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600"> Skills</span>
             </h1>
             <p className="text-gray-600 text-xl max-w-3xl mx-auto leading-relaxed">
-              Learn from expert-created skill paths or create your own interactive learning experiences. 
-              Join thousands of learners on their educational journey!
+              Learn through hands-on interactive experiences! Build circuits, play guitar, create art, 
+              conduct science experiments, and develop practical skills with expert guidance.
             </p>
           </motion.div>
 
@@ -184,17 +236,17 @@ const HomePage: React.FC = () => {
             <div className="edu-card text-center p-6 animate-scale-in">
               <FaUsers className="text-3xl text-blue-500 mx-auto mb-3" />
               <h3 className="text-2xl font-bold text-gray-800 mb-1">5,000+</h3>
-              <p className="text-gray-600">Active Learners</p>
+              <p className="text-gray-600">Hands-on Learners</p>
             </div>
             <div className="edu-card text-center p-6 animate-scale-in" style={{ animationDelay: '0.1s' }}>
               <FaBookOpen className="text-3xl text-green-500 mx-auto mb-3" />
-              <h3 className="text-2xl font-bold text-gray-800 mb-1">500+</h3>
-              <p className="text-gray-600">Skill Paths</p>
+              <h3 className="text-2xl font-bold text-gray-800 mb-1">200+</h3>
+              <p className="text-gray-600">Interactive Skills</p>
             </div>
             <div className="edu-card text-center p-6 animate-scale-in" style={{ animationDelay: '0.2s' }}>
               <FaFire className="text-3xl text-red-500 mx-auto mb-3" />
-              <h3 className="text-2xl font-bold text-gray-800 mb-1">95%</h3>
-              <p className="text-gray-600">Success Rate</p>
+              <h3 className="text-2xl font-bold text-gray-800 mb-1">92%</h3>
+              <p className="text-gray-600">Skill Mastery Rate</p>
             </div>
           </motion.div>
 
@@ -212,15 +264,16 @@ const HomePage: React.FC = () => {
               whileTap={{ scale: 0.95 }}
             >
               <FaPlus className="text-lg" />
-              Create New Skill
+              Create Interactive Skill
             </motion.button>
             <motion.button
+              onClick={() => router.push('/journey')}
               className="edu-button-secondary flex items-center gap-3 px-8 py-4 text-lg"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               <FaBookOpen className="text-lg" />
-              My Learning Path
+              My Skill Journey
             </motion.button>
           </motion.div>
 
@@ -236,7 +289,7 @@ const HomePage: React.FC = () => {
               <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search skills, topics, or creators..."
+                placeholder="Search interactive skills, experiments, or creators..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="edu-input w-full pl-12 pr-4 py-4 text-lg"
@@ -373,9 +426,9 @@ const HomePage: React.FC = () => {
             className="text-center py-16"
           >
             <FaLightbulb className="text-6xl text-gray-300 mx-auto mb-6" />
-            <h3 className="text-2xl font-bold text-gray-600 mb-4">No skills found</h3>
+            <h3 className="text-2xl font-bold text-gray-600 mb-4">No interactive skills found</h3>
             <p className="text-gray-500 mb-8 max-w-md mx-auto">
-              Try adjusting your search or explore different categories. Or create your own skill to get started!
+              Try adjusting your search or explore different categories. Or create your own hands-on learning experience!
             </p>
             <motion.button
               onClick={handleCreateSkill}
@@ -383,7 +436,7 @@ const HomePage: React.FC = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              Create Your First Skill
+              Create Your First Interactive Skill
             </motion.button>
           </motion.div>
         )}
@@ -444,12 +497,12 @@ const HomePage: React.FC = () => {
               </div>
 
               <div className="mb-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4">What you'll learn</h3>
+                <h3 className="text-xl font-bold text-gray-800 mb-4">What you'll master</h3>
                 <div className="space-y-3">
                   {selectedSkill.tags.map((tag, index) => (
                     <div key={index} className="flex items-center gap-3 text-gray-700">
                       <FaChevronRight className="text-blue-500 text-sm" />
-                      <span>Master {tag} concepts and practical applications</span>
+                      <span>Hands-on {tag} skills through interactive practice</span>
                     </div>
                   ))}
                 </div>
