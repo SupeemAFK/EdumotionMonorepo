@@ -22,20 +22,22 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-3 group">
-            <div className="relative">
-              <img 
-                src="/Icon.png" 
-                alt="Edumotion Logo" 
-                className="h-10 w-10 rounded-xl shadow-md transition-transform duration-200 group-hover:scale-105" 
-              />
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse-soft"></div>
+          <Link href="/">
+            <div className="flex items-center gap-3 group">
+              <div className="relative">
+                <img 
+                  src="/Icon.png" 
+                  alt="Edumotion Logo" 
+                  className="h-10 w-10 rounded-xl shadow-md transition-transform duration-200 group-hover:scale-105" 
+                />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse-soft"></div>
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-xl text-gray-800 tracking-tight">Edumotion</span>
+                <span className="text-xs text-blue-600 font-medium">Learn & Grow</span>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-xl text-gray-800 tracking-tight">Edumotion</span>
-              <span className="text-xs text-blue-600 font-medium">Learn & Grow</span>
-            </div>
-          </div>
+          </Link>
 
           {/* Desktop Menu */}
           {session?.user ? (
