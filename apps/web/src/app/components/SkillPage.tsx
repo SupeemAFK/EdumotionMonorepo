@@ -138,18 +138,24 @@ export default function SkillPage() {
     <div className="w-screen h-screen flex items-center justify-center">
       <div className="w-screen h-screen">
         <ReactFlow
-            colorMode="dark"
+            colorMode="light"
             nodes={nodes}
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             nodeTypes={nodeTypes}
+            nodesDraggable={true}
+            nodesConnectable={true}
+            elementsSelectable={true}
+            panOnDrag={true}
+            panOnScroll={true}
+            zoomOnScroll={true}
+            zoomOnPinch={true}
+            zoomOnDoubleClick={false}
             fitView
-            panOnScroll
-            zoomOnScroll
             defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
         >
-          <Background color="#ffffff" gap={50} />
+          <Background color="#e2e8f0" gap={50} />
           <Controls className="custom-controls" />
         </ReactFlow>
       </div>

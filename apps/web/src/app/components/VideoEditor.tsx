@@ -1,9 +1,10 @@
 "use client"
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { FaUpload, FaPlay, FaPause, FaStop, FaVolumeMute, FaVolumeUp, FaExpand, FaCompress, FaCut, FaPlus, FaTrash, FaEdit, FaSave } from "react-icons/fa";
+import { FaUpload, FaPlay, FaPause, FaStop, FaVolumeMute, FaVolumeUp, FaExpand, FaCompress, FaCut, FaPlus, FaTrash, FaEdit, FaSave, FaCheck } from "react-icons/fa";
 import { IoClose, IoInformationCircle } from "react-icons/io5";
 import { motion, AnimatePresence } from "motion/react";
+import { useRouter } from "next/navigation";
 
 interface VideoSegment {
   id: string;
@@ -32,11 +33,13 @@ const VideoEditor: React.FC<VideoEditorProps> = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [showSegmentModal, setShowSegmentModal] = useState(false);
   const [editingSegment, setEditingSegment] = useState<VideoSegment | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   // Handle file upload
   const handleFileUpload = useCallback((file: File) => {
@@ -204,6 +207,28 @@ const VideoEditor: React.FC<VideoEditorProps> = () => {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   }, []);
 
+  // Confirm segments and navigate to teacher page
+  const handleConfirmSegments = useCallback(() => {
+    if (segments.length === 0) {
+      return;
+    }
+    
+    // Store segments in localStorage for the teacher page to pick up
+    localStorage.setItem('videoSegments', JSON.stringify({
+      segments,
+      videoFile: videoFile ? {
+        name: videoFile.name,
+        size: videoFile.size,
+        type: videoFile.type,
+        url: videoUrl
+      } : null,
+      timestamp: Date.now()
+    }));
+    
+    // Navigate to teacher page
+    router.push('/teacher');
+  }, [segments, videoFile, videoUrl, router]);
+
   // Cleanup
   useEffect(() => {
     return () => {
@@ -241,7 +266,7 @@ const VideoEditor: React.FC<VideoEditorProps> = () => {
             >
               <FaUpload className="mx-auto mb-4 text-5xl text-purple-500" />
             </motion.div>
-            <h3 className="text-2xl font-bold mb-4 text-white">
+            <h3 className="text-2xl font-bold mb-4 text-purple-500"> 
               Upload Video
             </h3>
             <p className="text-gray-400 mb-6 text-base">
@@ -462,6 +487,29 @@ const VideoEditor: React.FC<VideoEditorProps> = () => {
                   </div>
                 ))}
               </div>
+
+              {/* Confirm Segments Button */}
+              {segments.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="mt-4 pt-4 border-t border-gray-700/50"
+                >
+                  <motion.button
+                    onClick={() => setShowConfirmModal(true)}
+                    className="w-full flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors duration-200 shadow-lg"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <FaCheck className="text-sm" />
+                    <span className="font-medium">Create Teacher Nodes</span>
+                  </motion.button>
+                  <p className="text-xs text-gray-400 mt-2 text-center">
+                    Convert {segments.length} segment{segments.length !== 1 ? 's' : ''} to learning nodes
+                  </p>
+                </motion.div>
+              )}
             </motion.div>
           </div>
 
@@ -648,6 +696,92 @@ const VideoEditor: React.FC<VideoEditorProps> = () => {
                 </motion.button>
                 <motion.button
                   onClick={() => setShowSegmentModal(false)}
+                  className="flex-1 p-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-medium transition-colors duration-200 shadow-lg"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Cancel
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirm Segments Modal */}
+      <AnimatePresence>
+        {showConfirmModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            onClick={() => setShowConfirmModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-gray-900/95 backdrop-blur-sm rounded-lg p-6 w-96 max-w-90vw border border-gray-700/50 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white">
+                  Create Teacher Nodes
+                </h3>
+                <motion.button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-800"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <IoClose size={20} />
+                </motion.button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-3 bg-blue-600/20 border border-blue-500/30 rounded-lg">
+                  <IoInformationCircle className="text-blue-400 text-xl flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-blue-300 font-medium">
+                      Ready to create learning nodes
+                    </p>
+                    <p className="text-xs text-blue-400 mt-1">
+                      This will convert your {segments.length} video segment{segments.length !== 1 ? 's' : ''} into interactive learning nodes in the teacher flow builder.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-gray-300">Segments to convert:</h4>
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {segments.map((segment) => (
+                      <div key={segment.id} className="flex items-center gap-2 p-2 bg-gray-800/50 rounded text-sm">
+                        <div
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: segment.color }}
+                        />
+                        <span className="text-gray-300 truncate">{segment.title}</span>
+                        <span className="text-gray-500 text-xs ml-auto">
+                          {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <motion.button
+                  onClick={handleConfirmSegments}
+                  className="flex-1 p-3 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition-colors duration-200 shadow-lg"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Create Nodes
+                </motion.button>
+                <motion.button
+                  onClick={() => setShowConfirmModal(false)}
                   className="flex-1 p-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-medium transition-colors duration-200 shadow-lg"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}

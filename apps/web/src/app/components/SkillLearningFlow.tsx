@@ -272,20 +272,20 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
   return (
     <div className="w-full h-full flex flex-col bg-transparent">
       {/* Header */}
-      <div className="flex-shrink-0 p-4 border-b border-gray-800/50">
+      <div className="flex-shrink-0 p-4 border-b border-gray-200/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <motion.button
               onClick={handleBack}
-              className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors duration-200"
+              className="p-2 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors duration-200 shadow-sm"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <FaArrowLeft className="text-sm" />
+              <FaArrowLeft className="text-sm text-gray-700" />
             </motion.button>
             <div>
-              <h1 className="text-xl font-bold text-white">{skillData.title}</h1>
-              <div className="flex items-center gap-4 text-sm text-gray-400">
+              <h1 className="text-xl font-bold text-gray-900">{skillData.title}</h1>
+              <div className="flex items-center gap-4 text-sm text-gray-600">
                 <div className="flex items-center gap-1">
                   <FaUser className="text-xs" />
                   <span>{skillData.creator}</span>
@@ -300,10 +300,10 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
           
           {/* Progress */}
           <div className="flex items-center gap-4">
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-gray-600">
               Progress: {completedNodes.length}/{nodes.length} steps
             </div>
-            <div className="w-32 h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
               <motion.div
                 className="h-full bg-green-500 rounded-full"
                 initial={{ width: 0 }}
@@ -320,20 +320,26 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
         {/* Flow Visualization */}
         <div className="flex-1 relative">
           <ReactFlow
-            colorMode="dark"
+            colorMode="light"
             nodes={nodes}
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
+            nodesDraggable={true}
+            nodesConnectable={true}
+            elementsSelectable={true}
+            panOnDrag={true}
+            panOnScroll={true}
+            zoomOnScroll={true}
+            zoomOnPinch={true}
+            zoomOnDoubleClick={false}
             fitView
-            panOnScroll
-            zoomOnScroll
             defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
             className="bg-transparent"
           >
-            <Background color="#1f2937" gap={20} />
+            <Background color="#e2e8f0" gap={20} />
             <Controls className="react-flow__controls" />
           </ReactFlow>
         </div>
@@ -343,16 +349,16 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="w-96 bg-gray-900/95 backdrop-blur-sm border-l border-gray-700/50 p-4 overflow-y-auto space-y-6"
+            className="w-96 bg-white/95 backdrop-blur-sm border-l border-gray-200/50 p-4 overflow-y-auto space-y-6 shadow-lg"
           >
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-blue-400">Current Step</span>
+                <span className="text-sm font-medium text-blue-600">Current Step</span>
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">{currentNode.data.label}</h3>
-              <p className="text-sm text-gray-400 mb-4">{currentNode.data.description}</p>
-              <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">{currentNode.data.label}</h3>
+              <p className="text-sm text-gray-600 mb-4">{currentNode.data.description}</p>
+              <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
                 <FaClock className="text-xs" />
                 <span>{currentNode.data.duration}</span>
               </div>
@@ -361,21 +367,21 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
             {/* Video Segments */}
             {currentNode.data.videoSegments && (
               <div className="mb-6">
-                <h4 className="text-sm font-semibold text-white mb-3">Video Segments</h4>
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Video Segments</h4>
                 <div className="space-y-2">
                   {currentNode.data.videoSegments.map((segment) => (
                     <div
                       key={segment.id}
-                      className="p-3 bg-gray-800/50 rounded-lg border border-gray-700/50"
+                      className="p-3 bg-gray-50 rounded-lg border border-gray-200"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <h5 className="text-sm font-medium text-white">{segment.title}</h5>
-                        <span className="text-xs text-gray-400">
+                        <h5 className="text-sm font-medium text-gray-900">{segment.title}</h5>
+                        <span className="text-xs text-gray-500">
                           {Math.floor(segment.startTime / 60)}:{(segment.startTime % 60).toString().padStart(2, '0')} - 
                           {Math.floor(segment.endTime / 60)}:{(segment.endTime % 60).toString().padStart(2, '0')}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500">{segment.description}</p>
+                      <p className="text-xs text-gray-600">{segment.description}</p>
                     </div>
                   ))}
                 </div>
@@ -384,7 +390,7 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
 
             <motion.button
               onClick={() => handleNodeComplete(currentNode.id)}
-              className="w-full flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition-colors duration-200"
+              className="w-full flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition-colors duration-200 text-white"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
@@ -414,27 +420,27 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             onClick={() => setSelectedNode(null)}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-gray-900/95 backdrop-blur-sm rounded-lg p-6 w-full max-w-4xl border border-gray-700/50 shadow-xl"
+              className="bg-white/95 backdrop-blur-sm rounded-lg p-6 w-full max-w-4xl border border-gray-200 shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-white">{selectedNode.data.label}</h2>
+                <h2 className="text-xl font-bold text-gray-900">{selectedNode.data.label}</h2>
                 <button
                   onClick={() => setSelectedNode(null)}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className="text-gray-500 hover:text-gray-700 transition-colors text-2xl"
                 >
                   ×
                 </button>
               </div>
 
-              <div className="aspect-video bg-black rounded-lg mb-4 flex items-center justify-center">
+              <div className="aspect-video bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
                 <video
                   src={selectedNode.data.video}
                   controls
@@ -444,12 +450,12 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
                 />
               </div>
 
-              <p className="text-gray-400 mb-4">{selectedNode.data.description}</p>
+              <p className="text-gray-600 mb-4">{selectedNode.data.description}</p>
 
               <div className="flex gap-4">
                 <motion.button
                   onClick={() => handleNodeComplete(selectedNode.id)}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition-colors duration-200"
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition-colors duration-200 text-white"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -458,7 +464,7 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
                 </motion.button>
                 <motion.button
                   onClick={() => setSelectedNode(null)}
-                  className="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors duration-200"
+                  className="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors duration-200 text-gray-700"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >

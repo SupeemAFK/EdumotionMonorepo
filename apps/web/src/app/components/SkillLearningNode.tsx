@@ -2,7 +2,7 @@
 
 import type { Node, NodeProps } from '@xyflow/react';
 import { Handle, Position } from "@xyflow/react";
-import { motion } from "motion/react";
+// import { motion } from "motion/react"; // Removed to eliminate drag delays
 import { FaCheck, FaPlay, FaLock, FaClock } from "react-icons/fa";
 
 interface SkillNodeData extends Record<string, unknown> {
@@ -46,16 +46,13 @@ export default function SkillLearningNode({ data, selected }: SkillLearningNodeP
   const isInteractive = data.status !== 'locked';
 
   return (
-    <motion.div
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.3 }}
+    <div
       className={`
         min-w-64 max-w-80 relative group rounded-lg cursor-pointer
         ${selected ? 'ring-2 ring-blue-400' : ''}
         ${getStatusColor()}
         ${isInteractive ? 'hover:shadow-lg' : 'opacity-60 cursor-not-allowed'}
-        border-2 p-4 bg-gray-800/50 backdrop-blur-sm
+        border-2 p-4 bg-white/90 backdrop-blur-sm
       `}
     >
       {/* Glow effect for selected node */}
@@ -76,7 +73,7 @@ export default function SkillLearningNode({ data, selected }: SkillLearningNodeP
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             {getStatusIcon()}
-            <h3 className="text-white font-semibold text-sm">{data.label}</h3>
+            <h3 className="text-gray-800 font-semibold text-sm">{data.label}</h3>
           </div>
           {data.status === 'current' && (
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
@@ -84,17 +81,17 @@ export default function SkillLearningNode({ data, selected }: SkillLearningNodeP
         </div>
         
         {/* Description */}
-        <p className="text-gray-300 text-xs mb-3 line-clamp-2">{data.description}</p>
+        <p className="text-gray-600 text-xs mb-3 line-clamp-2">{data.description}</p>
         
         {/* Duration */}
-        <div className="flex items-center gap-1 text-gray-400 text-xs mb-3">
+        <div className="flex items-center gap-1 text-gray-500 text-xs mb-3">
           <FaClock className="text-xs" />
           <span>{data.duration}</span>
         </div>
         
         {/* Video Segments Count */}
         {data.videoSegments && data.videoSegments.length > 0 && (
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-gray-500">
             {data.videoSegments.length} video segments
           </div>
         )}
@@ -106,7 +103,7 @@ export default function SkillLearningNode({ data, selected }: SkillLearningNodeP
             ${data.status === 'completed' ? 'bg-green-500/20 text-green-400' : ''}
             ${data.status === 'current' ? 'bg-blue-500/20 text-blue-400' : ''}
             ${data.status === 'available' ? 'bg-purple-500/20 text-purple-400' : ''}
-            ${data.status === 'locked' ? 'bg-gray-500/20 text-gray-400' : ''}
+            ${data.status === 'locked' ? 'bg-gray-200/50 text-gray-500' : ''}
           `}>
             {data.status === 'completed' ? 'Done' : 
              data.status === 'current' ? 'Active' : 
@@ -121,6 +118,6 @@ export default function SkillLearningNode({ data, selected }: SkillLearningNodeP
         position={Position.Bottom}
         className="w-3 h-3 bg-gray-600 border-2 border-gray-400"
       />
-    </motion.div>
+    </div>
   );
 } 

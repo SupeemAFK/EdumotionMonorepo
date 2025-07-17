@@ -2,7 +2,7 @@
 
 import type { Node, NodeProps } from '@xyflow/react';
 import { Handle, Position } from "@xyflow/react";
-import { motion } from "motion/react";
+// import { motion } from "motion/react"; // Removed to eliminate drag delays
 import { MdOutlineCheck } from "react-icons/md";
 import { FaPersonRunning } from "react-icons/fa6";
 import { ImNext2 } from "react-icons/im";
@@ -51,31 +51,28 @@ export default function SkillNode({ data }: NodeProps<SkillNodeType >) {
     } = useWebcamStream({ autoStart: showWebcam });
 
     return (
-        <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5 }}
+        <div
             className={`
                 min-w-56 max-w-64 relative group rounded-xl
-                ${data.status === "current" ? 'p-0.5 bg-gradient-to-r from-fuchsia-500 to-cyan-500' : data.status == "done" ? 'p-0.5 bg-gradient-to-r from-emerald-500 to-teal-500' : 'border-2 border-neutral-800'}
+                ${data.status === "current" ? 'p-0.5 bg-gradient-to-r from-fuchsia-500 to-cyan-500' : data.status == "done" ? 'p-0.5 bg-gradient-to-r from-emerald-500 to-teal-500' : 'border-2 border-gray-300'}
             `}
         >
             <div>
                 {data.status == "done" ? (
                     <div className="text-white fixed top-[-10px] right-[-10px] z-50 p-[2px] rounded-full bg-gradient-to-r from-emerald-500 to-teal-500">
-                        <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full">
-                            <MdOutlineCheck />
+                        <div className="flex items-center justify-center w-8 h-8 bg-white rounded-full">
+                            <MdOutlineCheck className="text-emerald-600" />
                         </div>
                     </div>
                 ) : 
                 data.status == "current" ? (
                     <div className="text-white fixed top-[-10px] right-[-10px] z-50 p-[2px] rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-500">
-                        <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full">
-                            <FaPersonRunning />
+                        <div className="flex items-center justify-center w-8 h-8 bg-white rounded-full">
+                            <FaPersonRunning className="text-fuchsia-600" />
                         </div>
                     </div>
                 ) : (
-                    <div className="text-white fixed flex items-center justify-center top-[-10] right-[-10] w-8 h-8 bg-black border-2 border-neutral-800 rounded-[50%] z-50">
+                    <div className="text-gray-800 fixed flex items-center justify-center top-[-10] right-[-10] w-8 h-8 bg-white border-2 border-gray-300 rounded-[50%] z-50 shadow-md">
                         <ImNext2 />
                     </div>
                 )}
@@ -83,7 +80,7 @@ export default function SkillNode({ data }: NodeProps<SkillNodeType >) {
             {data.status === "current"&& (
                 <div className="absolute -inset-1 bg-gradient-to-r from-fuchsia-500 to-cyan-500 rounded-lg blur-xs opacity-30 group-hover:opacity-50 transition duration-300"></div>
             )}
-            <div className="relative bg-black text-white rounded-[10px] w-full h-full overflow-hidden">
+            <div className="relative bg-white text-gray-800 rounded-[10px] w-full h-full overflow-hidden shadow-md border border-gray-200">
                 <div className="flex flex-col items-center leading-none">
                     {renderStatusBanner()}
                     <div className={`p-6 w-full text-center ${(data.status === "current" || data.status === "done") ? "mt-8" : ""}`}>
@@ -93,7 +90,7 @@ export default function SkillNode({ data }: NodeProps<SkillNodeType >) {
                     {data.video && (
                         <div className="w-full">
                             <video
-                                className="w-full bg-black"
+                                className="w-full bg-gray-800"
                                 src={data.video}
                                 controls
                                 poster="/window.svg"
@@ -103,7 +100,7 @@ export default function SkillNode({ data }: NodeProps<SkillNodeType >) {
                     {/* Webcam preview and streaming controls if current */}
                     {showWebcam && (
                         <div className="w-full flex flex-col items-center mt-4">
-                            <div className="relative bg-black rounded-xl overflow-hidden shadow-lg border border-white/10 w-full max-w-md">
+                            <div className="relative bg-white rounded-xl overflow-hidden shadow-lg border border-gray-200 w-full max-w-md">
                                 <video
                                     ref={videoRef}
                                     autoPlay
@@ -156,6 +153,6 @@ export default function SkillNode({ data }: NodeProps<SkillNodeType >) {
             </div>
             <Handle type="source" position={Position.Bottom} className="!bg-gray-500" />
             <Handle type="target" position={Position.Top} className="!bg-gray-500" />
-        </motion.div>
+        </div>
     );
 }
