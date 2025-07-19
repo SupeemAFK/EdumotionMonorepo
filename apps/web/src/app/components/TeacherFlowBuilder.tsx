@@ -200,7 +200,7 @@ function FlowBuilder() {
     };
 
     loadVideoSegments();
-  }, [setNodes, setEdges]);
+  }, []);
 
   // Helper function to format time
   const formatTime = (time: number) => {
