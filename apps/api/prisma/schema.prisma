@@ -1,0 +1,115 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model user {
+  id          String     @id
+  name        String
+  email       String     @unique
+  emailVerified Boolean
+  image       String?
+  createdAt   DateTime
+  updatedAt   DateTime
+
+  sessions    session[]
+  accounts    account[]
+  learnings   learning[] @relation("UserLearnings")
+}
+
+model session {
+  id          String   @id
+  expiresAt   DateTime
+  token       String   @unique
+  createdAt   DateTime
+  updatedAt   DateTime
+  ipAddress   String?
+  userAgent   String?
+  userId      String
+  user        user     @relation(fields: [userId], references: [id])
+}
+
+model account {
+  id                   String   @id
+  accountId            String
+  providerId           String
+  userId               String
+  accessToken          String?
+  refreshToken         String?
+  idToken              String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                String?
+  password             String?
+  createdAt            DateTime
+  updatedAt            DateTime
+
+  user                 user     @relation(fields: [userId], references: [id])
+}
+
+model verification {
+  id         String   @id 
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+}
+
+model learning {
+  id         String   @id @default(uuid())
+  title      String
+  description String
+  tags       String[]
+  level      String
+  rating     Float
+  estimatedTime Int
+  createdAt  DateTime
+  updatedAt  DateTime
+  creatorId  String
+  creator    user     @relation("UserLearnings", fields: [creatorId], references: [id])
+  nodes      node[]
+  edges      edge[]
+}
+
+model node {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  video       String
+  materials   String
+  positionX   Float
+  positionY   Float
+  learningId  String
+  algorithm   String
+  threshold   Float
+  createdAt  DateTime
+  updatedAt  DateTime
+
+  learning    learning @relation(fields: [learningId], references: [id])
+  fromEdges   edge[]   @relation("FromNode")
+  toEdges     edge[]   @relation("ToNode")
+}
+
+model edge {
+  id          String   @id @default(uuid())
+  learningId  String
+  fromNode    String
+  toNode      String
+  createdAt  DateTime
+  updatedAt  DateTime
+
+  learning    learning @relation(fields: [learningId], references: [id])
+  from        node     @relation("FromNode", fields: [fromNode], references: [id])
+  to          node     @relation("ToNode", fields: [toNode], references: [id])
+}

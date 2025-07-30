@@ -198,7 +198,7 @@ const HomePage: React.FC = () => {
   };
 
   const handleCreateSkill = () => {
-    router.push("/video-editor");
+    router.push("/create-learning");
   };
 
   return (

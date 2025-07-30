@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { HiMenu, HiX } from "react-icons/hi";
-import { FaUser, FaChalkboardTeacher, FaVideo, FaGraduationCap } from "react-icons/fa";
+import { FaUser, FaChalkboardTeacher, FaVideo, FaGraduationCap, FaBook } from "react-icons/fa";
 import { authClient } from "@/lib/auth-client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -44,25 +44,25 @@ export default function Navbar() {
             <div className="hidden md:flex items-center gap-2">
               <Link href="/" className="nav-link group">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200">
-                  <FaUser className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <FaGraduationCap className="w-4 h-4 group-hover:scale-110 transition-transform" />
                   <span className="font-medium">Learn</span>
                 </div>
               </Link>
-              <Link href="/teacher" className="nav-link group">
+              <Link href="/create-learning" className="nav-link group">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-700 hover:text-green-600 hover:bg-green-50 transition-all duration-200">
                   <FaChalkboardTeacher className="w-4 h-4 group-hover:scale-110 transition-transform" />
                   <span className="font-medium">Create</span>
                 </div>
               </Link>
-              <Link href="/video-editor" className="nav-link group">
+              <Link href="/my-learning" className="nav-link group">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-700 hover:text-purple-600 hover:bg-purple-50 transition-all duration-200">
-                  <FaVideo className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                  <span className="font-medium">Video Editor</span>
+                  <FaBook className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span className="font-medium">My Courses</span>
                 </div>
               </Link>
               <Link href="/journey" className="nav-link group">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-700 hover:text-orange-600 hover:bg-orange-50 transition-all duration-200">
-                  <FaGraduationCap className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <FaUser className="w-4 h-4 group-hover:scale-110 transition-transform" />
                   <span className="font-medium">Journey</span>
                 </div>
               </Link>
@@ -132,26 +132,26 @@ export default function Navbar() {
           <div className="px-4 py-4 space-y-3">
             <Link href="/" className="mobile-nav-link">
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200">
-                <FaUser className="w-5 h-5" />
-                <span className="font-medium">Learn Skills</span>
+                <FaGraduationCap className="w-5 h-5" />
+                <span className="font-medium">Learn</span>
               </div>
             </Link>
-            <Link href="/teacher" className="mobile-nav-link">
+            <Link href="/create-learning" className="mobile-nav-link">
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:text-green-600 hover:bg-green-50 transition-all duration-200">
                 <FaChalkboardTeacher className="w-5 h-5" />
-                <span className="font-medium">Create Skills</span>
+                <span className="font-medium">Create</span>
               </div>
             </Link>
-            <Link href="/video-editor" className="mobile-nav-link">
+            <Link href="/my-learning" className="mobile-nav-link">
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:text-purple-600 hover:bg-purple-50 transition-all duration-200">
-                <FaVideo className="w-5 h-5" />
-                <span className="font-medium">Video Editor</span>
+                <FaBook className="w-5 h-5" />
+                                 <span className="font-medium">My Courses</span>
               </div>
             </Link>
             <Link href="/journey" className="mobile-nav-link">
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:text-orange-600 hover:bg-orange-50 transition-all duration-200">
-                <FaGraduationCap className="w-5 h-5" />
-                <span className="font-medium">My Journey</span>
+                <FaUser className="w-5 h-5" />
+                <span className="font-medium">Journey</span>
               </div>
             </Link>
             
