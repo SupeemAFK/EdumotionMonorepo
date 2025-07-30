@@ -92,6 +92,7 @@ model node {
   positionY   Float
   learningId  String
   algorithm   String
+  type        String
   threshold   Float
   createdAt  DateTime
   updatedAt  DateTime

@@ -1,10 +1,30 @@
+import { IsString, IsNumber } from 'class-validator';
+
 export class UpdateNodeDto {
+    @IsString()
     title: string;
+
+    @IsString()
     description: string;
+
+    @IsString()
     video: string;
+
+    @IsString()
     materials: string;
-    positionX: number;
+
+    @IsNumber()
+    positionX: number;  
+
+    @IsNumber()
     positionY: number;
+
+    @IsString()
     algorithm: string;
+
+    @IsString()
+    type: string;
+
+    @IsNumber()
     threshold: number;
 }

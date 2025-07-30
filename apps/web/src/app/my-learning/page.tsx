@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { BookOpen, Clock, Tag, BarChart3, Edit, Trash2, Eye, Users, Star, Plus } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '../components/Navbar';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 
 // Type definition for learning content
 type LearningContent = {
@@ -14,64 +16,19 @@ type LearningContent = {
   level: 'Beginner' | 'Intermediate' | 'Advanced';
   estimatedTime: number;
   rating?: number;
-  enrolledCount?: number;
   createdAt: string;
   updatedAt: string;
 };
 
 export default function MyLearningPage() {
-  const [learningList, setLearningList] = useState<LearningContent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedLearning, setSelectedLearning] = useState<string | null>(null);
-
-  // Template function to fetch user's created learning courses
-  const fetchMyLearning = async () => {
-    setIsLoading(true);
-    try {
-      // TODO: Implement your API call logic here
-      console.log('Fetching user created learning courses...');
-      
-      // Mock data for demonstration - replace with your API call
-      const mockData: LearningContent[] = [
-        {
-          id: '1',
-          title: 'React Fundamentals',
-          description: 'Learn the basics of React including components, props, and state management.',
-          tags: ['react', 'javascript', 'frontend'],
-          level: 'Beginner',
-          estimatedTime: 120,
-          rating: 4.5,
-          enrolledCount: 45,
-          createdAt: '2024-01-15',
-          updatedAt: '2024-01-20'
-        },
-        {
-          id: '2',
-          title: 'Advanced TypeScript',
-          description: 'Deep dive into TypeScript advanced features and patterns.',
-          tags: ['typescript', 'javascript', 'programming'],
-          level: 'Advanced',
-          estimatedTime: 180,
-          rating: 4.8,
-          enrolledCount: 23,
-          createdAt: '2024-01-10',
-          updatedAt: '2024-01-18'
-        }
-      ];
-      
-      // Your API call would look like:
-      // const response = await fetch('/api/learning/my-learning');
-      // const data = await response.json();
-      // setLearningList(data);
-      
-      setLearningList(mockData);
-      
-    } catch (error) {
-      console.error('Error fetching learning content:', error);
-    } finally {
-      setIsLoading(false);
+  const { data: learningList = [], isLoading } = useQuery({ 
+    queryKey: ['learning'], 
+    queryFn: async () => {
+      const res = await axios.get('http://localhost:3001/learning')
+      return res.data as LearningContent[]
     }
-  };
+  })
+  const [selectedLearning, setSelectedLearning] = useState<string | null>(null);
 
   // Template function to handle editing learning course
   const handleEdit = (learningId: string) => {
@@ -91,43 +48,39 @@ export default function MyLearningPage() {
       return;
     }
 
-          try {
-        // TODO: Implement your delete API call here
-        console.log('Deleting learning course with ID:', learningId);
-      
-      // Your API call would look like:
-      // await fetch(`/api/learning/${learningId}`, { method: 'DELETE' });
-      
-      // Update the list after successful deletion
-      setLearningList(prev => prev.filter(item => item.id !== learningId));
-      
-    } catch (error) {
-      console.error('Error deleting learning course:', error);
-      alert('Failed to delete learning course');
-    }
-  };
-
-  // Template function to handle viewing course analytics
-  const handleViewAnalytics = (learningId: string) => {
-    // TODO: Implement your analytics view logic here
-    console.log('View analytics for learning course with ID:', learningId);
+        try {
+      // TODO: Implement your delete API call here
+      console.log('Deleting learning course with ID:', learningId);
     
-    // You could navigate to an analytics page:
-    // router.push(`/learning-analytics/${learningId}`);
-  };
+    // Your API call would look like:
+    // await fetch(`/api/learning/${learningId}`, { method: 'DELETE' });
+    
+    // After successful deletion, you would need to refetch the data
+    // or use mutation with React Query to update the cache
+    
+  } catch (error) {
+    console.error('Error deleting learning course:', error);
+    alert('Failed to delete learning course');
+  }
+};
 
-  useEffect(() => {
-    fetchMyLearning();
-  }, []);
+// Template function to handle viewing course analytics
+const handleViewAnalytics = (learningId: string) => {
+  // TODO: Implement your analytics view logic here
+  console.log('View analytics for learning course with ID:', learningId);
+  
+  // You could navigate to an analytics page:
+  // router.push(`/learning-analytics/${learningId}`);
+};
 
-  const getLevelColor = (level: string) => {
-    switch (level) {
-      case 'Beginner': return 'text-green-600 bg-green-100';
-      case 'Intermediate': return 'text-yellow-600 bg-yellow-100';
-      case 'Advanced': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
+const getLevelColor = (level: string) => {
+  switch (level) {
+    case 'Beginner': return 'text-green-600 bg-green-100';
+    case 'Intermediate': return 'text-yellow-600 bg-yellow-100';
+    case 'Advanced': return 'text-red-600 bg-red-100';
+    default: return 'text-gray-600 bg-gray-100';
+  }
+};
 
   if (isLoading) {
     return (
@@ -200,10 +153,6 @@ export default function MyLearningPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 text-gray-500">
-                    <Users className="w-4 h-4" />
-                    <span className="text-sm">{learning.enrolledCount || 0}</span>
-                  </div>
                 </div>
 
                 {/* Content */}
@@ -236,27 +185,38 @@ export default function MyLearningPage() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(learning.id)}
-                    className="flex-1 edu-button-secondary py-2 text-sm flex items-center justify-center gap-2 hover:bg-blue-50"
-                  >
-                    <Edit className="w-4 h-4" />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleViewAnalytics(learning.id)}
-                    className="flex-1 edu-button-secondary py-2 text-sm flex items-center justify-center gap-2 hover:bg-green-50"
-                  >
-                    <Eye className="w-4 h-4" />
-                    Analytics
-                  </button>
-                  <button
-                    onClick={() => handleDelete(learning.id)}
-                    className="px-3 py-2 border-2 border-red-200 text-red-600 rounded-xl hover:bg-red-50 hover:border-red-300 transition-all duration-200 flex items-center justify-center"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <Link href={`/teacher/${learning.id}`} className="flex-1">
+                      <button className="w-full edu-button-primary py-2 text-sm flex items-center justify-center gap-2">
+                        <Eye className="w-4 h-4" />
+                        View
+                      </button>
+                    </Link>
+                    <button
+                      onClick={() => handleEdit(learning.id)}
+                      className="flex-1 edu-button-secondary py-2 text-sm flex items-center justify-center gap-2 hover:bg-blue-50"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Edit
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleViewAnalytics(learning.id)}
+                      className="flex-1 edu-button-secondary py-2 text-sm flex items-center justify-center gap-2 hover:bg-green-50"
+                    >
+                      <BarChart3 className="w-4 h-4" />
+                      Analytics
+                    </button>
+                    <button
+                      onClick={() => handleDelete(learning.id)}
+                      className="flex-1 border-2 border-red-200 text-red-600 rounded-xl hover:bg-red-50 hover:border-red-300 transition-all duration-200 py-2 text-sm flex items-center justify-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -265,18 +225,12 @@ export default function MyLearningPage() {
 
         {/* Stats Summary */}
         {learningList.length > 0 && (
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="edu-card p-4 text-center">
               <div className="text-2xl font-bold text-blue-600 mb-1">
                 {learningList.length}
               </div>
               <div className="text-sm text-gray-600">Total Content</div>
-            </div>
-            <div className="edu-card p-4 text-center">
-              <div className="text-2xl font-bold text-green-600 mb-1">
-                {learningList.reduce((sum, item) => sum + (item.enrolledCount || 0), 0)}
-              </div>
-              <div className="text-sm text-gray-600">Total Enrollments</div>
             </div>
             <div className="edu-card p-4 text-center">
               <div className="text-2xl font-bold text-purple-600 mb-1">

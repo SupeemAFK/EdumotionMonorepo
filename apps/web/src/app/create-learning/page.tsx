@@ -6,6 +6,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { BookOpen, Clock, Tag, BarChart3, FileText, Plus, X } from 'lucide-react';
 import Navbar from '../components/Navbar';
+import { useMutation } from '@tanstack/react-query';
+import axios from 'axios';
+import { authClient } from '@/lib/auth-client';
 
 const CreateLearningSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters").max(100, "Title must be less than 100 characters"),
@@ -19,7 +22,24 @@ const CreateLearningSchema = z.object({
 
 type CreateLearningSchemaType = z.infer<typeof CreateLearningSchema>;
 
+interface CreateLearningDto { 
+  title: string;
+  description: string;
+  tags: string[];
+  level: string;
+  rating: number;
+  estimatedTime: number;
+  creatorId: string;
+}
+
 export default function CreateLearningPage() {
+  const { mutate } = useMutation({
+    mutationFn: async (body: CreateLearningDto) => {
+      const res = await axios.post('http://localhost:3001/learning', body)
+      return res
+    }
+  })
+  const { data: session } = authClient.useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentTag, setCurrentTag] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -61,15 +81,23 @@ export default function CreateLearningPage() {
 
   // Template function for handling form submission - implement your logic here
   const onSubmit: SubmitHandler<CreateLearningSchemaType> = async (formData) => {
-    setIsSubmitting(true);
-    
+    if (!session?.user.id) return;
+
+    setIsSubmitting(true);    
+
     try {
       console.log('Form data to submit:', formData);
-      
+      mutate({
+        title: formData.title,
+        description: formData.description,
+        tags: formData.tags,
+        level: formData.level,
+        rating: 0,
+        estimatedTime: formData.estimatedTime,
+        creatorId: session.user.id,
+      })
       reset();
       setTags([]);
-      
-      
     } 
     catch (error) {
       console.error('Error creating learning:', error);

@@ -1,12 +1,33 @@
+import { IsString, IsNumber, IsArray } from 'class-validator';
+
 export class CreateNodeDto {
-    id: string;
+    @IsString()
     title: string;
+
+    @IsString()
     description: string;
+
+    @IsString()
     video: string;
+
+    @IsString()
     materials: string;
-    positionX: number;
+
+    @IsNumber()
+    positionX: number;  
+
+    @IsNumber()
     positionY: number;
+
+    @IsString()
     learningId: string;
+
+    @IsString()
     algorithm: string;
+
+    @IsString()
+    type: string;
+
+    @IsNumber()
     threshold: number;
 }

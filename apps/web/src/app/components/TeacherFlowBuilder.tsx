@@ -374,6 +374,58 @@ function FlowBuilder() {
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
 
+  // Save function to extract and log node and edge data
+  const handleSave = useCallback(() => {
+    const nodeDataToSave = nodes.map((node) => {
+      // Extract video URL from files if available
+      const videoFile = node.data.files.find(file => file.type.includes('video'));
+      const videoUrl = videoFile?.url || '';
+      
+      // Extract materials (non-video files) as JSON string
+      const materials = node.data.files
+        .filter(file => !file.type.includes('video'))
+        .map(file => ({
+          id: file.id,
+          name: file.name,
+          type: file.type,
+          url: file.url,
+          size: file.size
+        }));
+
+      return {
+        title: node.data.label,
+        description: node.data.description,
+        video: videoUrl,
+        materials: JSON.stringify(materials),
+        positionX: node.position.x,
+        positionY: node.position.y,
+        learningId: "LEARNING_ID_PLACEHOLDER", // You'll need to replace this with actual learningId
+        algorithm: node.data.aiModel || 'none',
+        type: node.data.isStartNode ? 'start' : node.data.isEndNode ? 'end' : 'step',
+        threshold: node.data.threshold
+      };
+    });
+
+    const edgeDataToSave = edges.map((edge) => ({
+      learningId: "LEARNING_ID_PLACEHOLDER", // You'll need to replace this with actual learningId
+      fromNode: edge.source,
+      toNode: edge.target
+    }));
+
+    console.log('Nodes data to save:', nodeDataToSave);
+    console.log('Edges data to save:', edgeDataToSave);
+    
+    // You can replace these console.logs with your API calls
+    // Example: 
+    // await saveNodesToDatabase(nodeDataToSave);
+    // await saveEdgesToDatabase(edgeDataToSave);
+    
+    return {
+      nodes: nodeDataToSave,
+      edges: edgeDataToSave
+    };
+  }, [nodes, edges]);
+
   // Handle keyboard shortcuts
   useEffect(() => {
     if (deletePressed) {
@@ -412,21 +464,34 @@ function FlowBuilder() {
           <Background color="#e2e8f0" gap={20} />
           <Controls className="react-flow__controls" />
           
+          {/* Save Button */}
+          <div className="absolute top-4 right-4 z-50">
+            <button
+              onClick={handleSave}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 font-medium animate-in slide-in-from-right-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Save Flow
+            </button>
+          </div>
+          
           {/* Floating Toolbar */}
           {(selectedNodeId || selectedEdgeId) && (
             <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg shadow-xl px-4 py-2 flex items-center gap-3 z-50 animate-in slide-in-from-top-2 duration-300">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                              <span className="text-gray-800 text-sm font-medium">
+              <span className="text-gray-800 text-sm font-medium">
                 {selectedNodeId 
                   ? `Node selected: ${nodes.find(n => n.id === selectedNodeId)?.data.label}`
                   : 'Edge selected'
                 }
               </span>
               <div className="w-px h-4 bg-gray-600"></div>
-                              <span className="text-gray-600 text-xs">Press Delete to remove</span>
+              <span className="text-gray-600 text-xs">Press Delete to remove</span>
               <button
                 onClick={confirmDelete}
-                                  className="ml-2 px-3 py-1.5 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200"
+                className="ml-2 px-3 py-1.5 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200"
               >
                 Delete
               </button>

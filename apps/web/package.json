@@ -11,11 +11,16 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
+    "@tanstack/react-query": "^5.83.0",
+    "@tanstack/react-query-devtools": "4",
     "@xyflow/react": "^12.7.1",
+    "axios": "^1.11.0",
     "better-auth": "^1.2.12",
     "lucide-react": "^0.525.0",
     "motion": "^12.19.0",
     "next": "15.3.4",
+    "openapi-fetch": "^0.14.0",
+    "openapi-react-query": "^0.5.0",
     "pg": "^8.16.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -32,7 +37,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
+    "openapi-typescript": "^7.8.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5.8.3"
   }
 }

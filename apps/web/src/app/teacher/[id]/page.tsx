@@ -1,5 +1,5 @@
-import Navbar from "../components/Navbar";
-import TeacherFlowBuilder from "../components/TeacherFlowBuilder";
+import Navbar from "../../components/Navbar";
+import TeacherFlowBuilder from "../../components/TeacherFlowBuilder";
 
 export default function TeacherPage() {
   return (
