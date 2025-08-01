@@ -687,35 +687,19 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
     setSelectedNode(typedNode);
   }, []);
 
-  const handleNodeComplete = useCallback((nodeId: string) => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === nodeId) {
-          return { ...node, data: { ...node.data, status: 'completed' as const } };
-        }
-        // Unlock next node
-        const nodeIndex = nds.findIndex(n => n.id === nodeId);
-        if (nodeIndex < nds.length - 1) {
-          const nextNode = nds[nodeIndex + 1];
-          if (nextNode.data.status === 'available') {
-            return nextNode.id === nds[nodeIndex + 1].id 
-              ? { ...nextNode, data: { ...nextNode.data, status: 'current' as const } }
-              : node;
-          }
-        }
-        return node;
-      })
-    );
-    setSelectedNode(null);
-  }, [setNodes]);
+  const handleCheckCorrect = useCallback((nodeId: string) => {
+    console.log('🔍 Check if correct clicked for node:', nodeId);
+    // Add your check logic here
+  }, []);
 
   const handleBack = () => {
     router.push('/');
   };
 
   const currentNode = nodes.find(node => (node.data as SkillNodeData).status === 'current') as Node<SkillNodeData> | undefined;
-  const completedNodes = nodes.filter(node => (node.data as SkillNodeData).status === 'completed');
-  const progress = (completedNodes.length / nodes.length) * 100;
+  // Remove completion tracking since we don't have completion logic anymore
+  const totalLearningNodes = nodes.filter(node => (node.data as SkillNodeData).type !== 'start' && (node.data as SkillNodeData).type !== 'end').length;
+  const progress = 0; // Set to 0 since we're not tracking completion
 
   return (
     <div className="w-full h-full flex flex-col bg-transparent">
@@ -749,11 +733,11 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
           {/* Progress */}
           <div className="flex items-center gap-4">
             <div className="text-sm text-gray-600">
-              Progress: {completedNodes.length}/{nodes.length} steps
+              Learning: {totalLearningNodes} steps
             </div>
             <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
               <motion.div
-                className="h-full bg-green-500 rounded-full"
+                className="h-full bg-blue-500 rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.5 }}
@@ -837,13 +821,13 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
             )}
 
             <motion.button
-              onClick={() => handleNodeComplete(currentNode.id)}
-              className="w-full flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition-colors duration-200 text-white"
+              onClick={() => handleCheckCorrect(currentNode.id)}
+              className="w-full flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors duration-200 text-white"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
               <FaCheck className="text-sm" />
-              Mark as Complete
+              Check if Correct
             </motion.button>
 
             {/* Learning Webcam */}
@@ -963,15 +947,18 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
               </div>
 
               <div className="flex gap-4">
-                <motion.button
-                  onClick={() => handleNodeComplete(selectedNode.id)}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition-colors duration-200 text-white"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <FaCheck className="text-sm" />
-                  Complete Step
-                </motion.button>
+                {/* Only show Check if Correct button for current node */}
+                {selectedNode.data.status === 'current' && (
+                  <motion.button
+                    onClick={() => handleCheckCorrect(selectedNode.id)}
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors duration-200 text-white"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <FaCheck className="text-sm" />
+                    Check if Correct
+                  </motion.button>
+                )}
                 <motion.button
                   onClick={() => setSelectedNode(null)}
                   className="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors duration-200 text-gray-700"
