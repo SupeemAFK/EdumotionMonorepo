@@ -253,9 +253,23 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
             color: string;
           }, index: number) => {
             const nodeId = `video-segment-${segment.id}`;
+            
+            // Find the Start node position to place video segments around it
+            const startNode = nodes.find(node => node.data.isStartNode);
+            const startX = startNode ? startNode.position.x : 100;
+            const startY = startNode ? startNode.position.y : 100;
+            
+            // Generate random position around the Start node
+            const angle = (index / segments.length) * 2 * Math.PI; // Distribute evenly in a circle
+            const radius = 200 + Math.random() * 100; // Random radius between 200-300px
+            const randomOffset = {
+              x: Math.random() * 100 - 50, // Random offset ±50px
+              y: Math.random() * 100 - 50
+            };
+            
             const position = {
-              x: 250 + (index * 300), // Spread horizontally
-              y: 200 + (index % 2 * 150) // Alternate vertically
+              x: startX + Math.cos(angle) * radius + randomOffset.x,
+              y: startY + Math.sin(angle) * radius + randomOffset.y
             };
 
             return {

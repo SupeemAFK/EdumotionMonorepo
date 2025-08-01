@@ -38,8 +38,17 @@ export default function GraphPage({ params }: { params: { id: string } }) {
         // Graph exists, redirect to teacher flow builder
         router.push(`/teacher/${params.id}`);
       } else {
-        // No graph exists, show creation choices
-        setShowChoice(true);
+        // Check if there are video segments from the video editor
+        const storedData = localStorage.getItem('videoSegments');
+        const pendingLearningId = localStorage.getItem('pendingLearningId');
+        
+        if (storedData && pendingLearningId === params.id) {
+          // Video segments exist, redirect to teacher page to load them
+          router.push(`/teacher/${params.id}`);
+        } else {
+          // No graph and no video segments, show creation choices
+          setShowChoice(true);
+        }
       }
     }
   }, [graphData, isLoading, router, params.id]);

@@ -225,8 +225,15 @@ const VideoEditor: React.FC<VideoEditorProps> = () => {
       timestamp: Date.now()
     }));
     
-    // Navigate to teacher page
-    router.push('/teacher');
+    // Get the pending learning ID and navigate to the graph route
+    const pendingLearningId = localStorage.getItem('pendingLearningId');
+    if (pendingLearningId) {
+      // Navigate to graph route which will then redirect to teacher page with video segments loaded
+      router.push(`/teacher/${pendingLearningId}/graph`);
+    } else {
+      // Fallback to general teacher page if no pending learning ID
+      router.push('/teacher');
+    }
   }, [segments, videoFile, videoUrl, router]);
 
   // Cleanup
