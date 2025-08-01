@@ -30,6 +30,11 @@ export class LearningController {
     return this.learningService.findAll();
   }
 
+  @Get('/user/:userId')
+  findAllByUser(@Param('userId') userId: string) {
+    return this.learningService.findAllByUser(userId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.learningService.findOne(id);

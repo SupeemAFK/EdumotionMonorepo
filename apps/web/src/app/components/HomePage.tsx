@@ -4,163 +4,26 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { FaPlay, FaPlus, FaSearch, FaUser, FaClock, FaStar, FaChevronRight, FaBookOpen, FaGraduationCap, FaLightbulb, FaTrophy, FaFire, FaUsers } from "react-icons/fa";
 import { useRouter } from "next/navigation";
-
-interface Skill {
-  id: string;
-  title: string;
-  description: string;
-  creator: string;
-  duration: string;
-  difficulty: "Beginner" | "Intermediate" | "Advanced";
-  rating: number;
-  thumbnail: string;
-  tags: string[];
-  steps: number;
-  enrolled: number;
-}
-
-const mockSkills: Skill[] = [
-  {
-    id: "1",
-    title: "Basic Circuit Building",
-    description: "Learn to build simple electronic circuits with LEDs, resistors, and batteries through hands-on projects",
-    creator: "Dr. Sarah Electronics",
-    duration: "2h 30m",
-    difficulty: "Beginner",
-    rating: 4.8,
-    thumbnail: "/placeholder.jpg",
-    tags: ["Electronics", "Circuits", "Hands-on"],
-    steps: 8,
-    enrolled: 1234
-  },
-  {
-    id: "2",
-    title: "Guitar Chord Mastery",
-    description: "Master essential guitar chords and strumming patterns with interactive video lessons and practice exercises",
-    creator: "Jake Martinez",
-    duration: "3h 15m",
-    difficulty: "Beginner",
-    rating: 4.9,
-    thumbnail: "/placeholder.jpg",
-    tags: ["Music", "Guitar", "Chords"],
-    steps: 12,
-    enrolled: 856
-  },
-  {
-    id: "3",
-    title: "Digital Art Fundamentals",
-    description: "Create stunning digital artwork using drawing tablets and software with step-by-step tutorials",
-    creator: "Emma Creative",
-    duration: "4h 45m",
-    difficulty: "Intermediate",
-    rating: 4.7,
-    thumbnail: "/placeholder.jpg",
-    tags: ["Art", "Digital Drawing", "Creative"],
-    steps: 15,
-    enrolled: 678
-  },
-  {
-    id: "4",
-    title: "Chemistry Lab Experiments",
-    description: "Conduct safe and exciting chemistry experiments to understand chemical reactions and properties",
-    creator: "Prof. Michael Lab",
-    duration: "2h 10m",
-    difficulty: "Intermediate",
-    rating: 4.6,
-    thumbnail: "/placeholder.jpg",
-    tags: ["Science", "Chemistry", "Experiments"],
-    steps: 6,
-    enrolled: 943
-  },
-  {
-    id: "5",
-    title: "Home Workout Routines",
-    description: "Build strength and fitness with guided workout routines that require no equipment",
-    creator: "Coach Alex Fit",
-    duration: "1h 20m",
-    difficulty: "Beginner",
-    rating: 4.8,
-    thumbnail: "/placeholder.jpg",
-    tags: ["Fitness", "Exercise", "Health"],
-    steps: 10,
-    enrolled: 567
-  },
-  {
-    id: "6",
-    title: "Arduino Programming",
-    description: "Learn to program Arduino microcontrollers to create interactive electronic projects and robots",
-    creator: "Dr. Tech Innovator",
-    duration: "6h 30m",
-    difficulty: "Advanced",
-    rating: 4.9,
-    thumbnail: "/placeholder.jpg",
-    tags: ["Electronics", "Programming", "Arduino"],
-    steps: 20,
-    enrolled: 789
-  },
-  {
-    id: "7",
-    title: "Watercolor Painting Basics",
-    description: "Discover the art of watercolor painting with techniques for blending, layering, and creating beautiful landscapes",
-    creator: "Artist Luna Colors",
-    duration: "3h 45m",
-    difficulty: "Beginner",
-    rating: 4.7,
-    thumbnail: "/placeholder.jpg",
-    tags: ["Art", "Painting", "Watercolor"],
-    steps: 14,
-    enrolled: 432
-  },
-  {
-    id: "8",
-    title: "Physics Lab Mechanics",
-    description: "Explore fundamental physics concepts through hands-on experiments with motion, forces, and energy",
-    creator: "Dr. Physics Pro",
-    duration: "4h 00m",
-    difficulty: "Advanced",
-    rating: 4.8,
-    thumbnail: "/placeholder.jpg",
-    tags: ["Science", "Physics", "Mechanics"],
-    steps: 16,
-    enrolled: 321
-  },
-  {
-    id: "9",
-    title: "Yoga for Beginners",
-    description: "Learn basic yoga poses and breathing techniques to improve flexibility, strength, and mindfulness",
-    creator: "Yogi Zen Master",
-    duration: "2h 30m",
-    difficulty: "Beginner",
-    rating: 4.9,
-    thumbnail: "/placeholder.jpg",
-    tags: ["Fitness", "Yoga", "Wellness"],
-    steps: 12,
-    enrolled: 876
-  },
-  {
-    id: "10",
-    title: "3D Printing Design",
-    description: "Design and create your own 3D printed objects using CAD software and 3D printing techniques",
-    creator: "Designer Tech Maker",
-    duration: "5h 15m",
-    difficulty: "Intermediate",
-    rating: 4.6,
-    thumbnail: "/placeholder.jpg",
-    tags: ["Technology", "3D Design", "Making"],
-    steps: 18,
-    enrolled: 654
-  }
-];
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { LearningContent } from "../my-learning/page";
 
 const HomePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
+  const [selectedSkill, setSelectedSkill] = useState<LearningContent | null>(null);
   const router = useRouter();
+  const { data: learningList = [], isLoading } = useQuery({ 
+    queryKey: ['learning'], 
+    queryFn: async () => {
+      const res = await api.get('/learning/')
+      return res.data as LearningContent[]
+    },
+  })
 
   const categories = ["All", "Electronics", "Music", "Art", "Science", "Fitness", "Technology"];
 
-  const filteredSkills = mockSkills.filter(skill => {
+  const filteredSkills = learningList.filter(skill => {
     const matchesSearch = skill.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          skill.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          skill.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -189,7 +52,7 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const handleSkillSelect = (skill: Skill) => {
+  const handleSkillSelect = (skill: LearningContent) => {
     setSelectedSkill(skill);
   };
 
@@ -352,9 +215,9 @@ const HomePage: React.FC = () => {
 
               {/* Difficulty Badge */}
               <div className="mb-4">
-                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${getDifficultyBg(skill.difficulty)}`}>
+                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${getDifficultyBg(skill.level)}`}>
                   <FaGraduationCap className="text-xs" />
-                  {skill.difficulty}
+                  {skill.level}
                 </span>
               </div>
 
@@ -362,11 +225,11 @@ const HomePage: React.FC = () => {
               <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
                 <div className="flex items-center gap-1">
                   <FaUser className="text-xs" />
-                  <span>{skill.creator}</span>
+                  <span>{skill.creator.name}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <FaClock className="text-xs" />
-                  <span>{skill.duration}</span>
+                  <span>{skill.estimatedTime}</span>
                 </div>
               </div>
 
@@ -394,10 +257,6 @@ const HomePage: React.FC = () => {
 
               {/* Stats and Action */}
               <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-500">
-                  <span className="font-medium">{skill.steps}</span> steps • 
-                  <span className="font-medium"> {skill.enrolled}</span> enrolled
-                </div>
                 <motion.button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -475,16 +334,16 @@ const HomePage: React.FC = () => {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-blue-50 rounded-xl p-4">
                   <div className="text-sm text-blue-600 font-medium mb-1">Creator</div>
-                  <div className="text-gray-800 font-bold">{selectedSkill.creator}</div>
+                  <div className="text-gray-800 font-bold">{selectedSkill.creator.name}</div>
                 </div>
                 <div className="bg-green-50 rounded-xl p-4">
                   <div className="text-sm text-green-600 font-medium mb-1">Duration</div>
-                  <div className="text-gray-800 font-bold">{selectedSkill.duration}</div>
+                  <div className="text-gray-800 font-bold">{selectedSkill.estimatedTime}</div>
                 </div>
                 <div className="bg-yellow-50 rounded-xl p-4">
                   <div className="text-sm text-yellow-600 font-medium mb-1">Difficulty</div>
-                  <div className={`font-bold ${getDifficultyColor(selectedSkill.difficulty)}`}>
-                    {selectedSkill.difficulty}
+                  <div className={`font-bold ${getDifficultyColor(selectedSkill.level)}`}>
+                    {selectedSkill.level}
                   </div>
                 </div>
                 <div className="bg-purple-50 rounded-xl p-4">

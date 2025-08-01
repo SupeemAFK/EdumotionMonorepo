@@ -265,7 +265,11 @@ export class LearningService {
   }
 
   findAll() {
-    return this.prismaService.learning.findMany();
+    return this.prismaService.learning.findMany({ include: { creator: true } });
+  }
+
+  findAllByUser(userId: string) {
+    return this.prismaService.learning.findMany({ where: { creatorId: userId } });
   }
 
   findOne(id: string) {
@@ -289,8 +293,48 @@ export class LearningService {
       throw new NotFoundException(`Learning with ID ${id} not found`);
     }
 
+    // Generate fresh signed URLs for all video and material files
+    const nodesWithFreshUrls = await Promise.all(
+      learning.nodes.map(async (node) => {
+        let freshVideoUrl = node.video;
+        let freshMaterialsUrl = node.materials;
+
+        // Handle video URLs - check if it's a segment or regular video
+        if (node.video) {
+          try {
+            // Try to parse as video segment data
+            const videoData = JSON.parse(node.video);
+            if (videoData.url && this.nodesService.isS3Key(videoData.url)) {
+              // Generate fresh signed URL for the segment
+              videoData.url = await this.nodesService.getFreshSignedUrl(videoData.url);
+              freshVideoUrl = JSON.stringify(videoData);
+            }
+          } catch {
+            // Not JSON, treat as regular S3 key
+            if (this.nodesService.isS3Key(node.video)) {
+              freshVideoUrl = await this.nodesService.getFreshSignedUrl(node.video);
+            }
+          }
+        }
+
+        // Handle materials URLs
+        if (node.materials && this.nodesService.isS3Key(node.materials)) {
+          freshMaterialsUrl = await this.nodesService.getFreshSignedUrl(node.materials);
+        }
+
+        return {
+          ...node,
+          video: freshVideoUrl,
+          materials: freshMaterialsUrl,
+        };
+      })
+    );
+
     return {
-      learning,
+      learning: {
+        ...learning,
+        nodes: nodesWithFreshUrls,
+      },
       hasGraph: learning.nodes.length > 0,
       nodeCount: learning.nodes.length,
       edgeCount: learning.edges.length

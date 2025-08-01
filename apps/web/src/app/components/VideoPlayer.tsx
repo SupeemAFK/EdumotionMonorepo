@@ -24,6 +24,15 @@ export default function VideoPlayer({
   onTimeUpdate,
   onEnded
 }: VideoPlayerProps) {
+  // Debug props
+  useEffect(() => {
+    console.log('🎥 VideoPlayer props:', { 
+      src: src?.substring(0, 50) + '...', 
+      startTime, 
+      endTime,
+      hasValidSrc: !!src && src.length > 0
+    });
+  }, [src, startTime, endTime]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);

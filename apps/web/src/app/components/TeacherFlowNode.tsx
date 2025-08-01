@@ -122,10 +122,20 @@ export default function TeacherFlowNode({ data, selected }: NodeProps<Node<FlowN
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">Video Content</span>
                     <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-red-500 rounded-full" title="Video file"></div>
+                      <div className={`w-2 h-2 rounded-full ${videoFile.isExpired ? 'bg-red-500' : 'bg-green-500'}`} 
+                           title={videoFile.isExpired ? "Video expired" : "Video file"}></div>
                       {videoFile.segmentData && (
-                        <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
-                          Segment
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          videoFile.isExpired || videoFile.segmentData.isExpired 
+                            ? 'text-red-600 bg-red-100' 
+                            : 'text-purple-600 bg-purple-100'
+                        }`}>
+                          {videoFile.isExpired || videoFile.segmentData.isExpired ? 'Expired Segment' : 'Segment'}
+                        </span>
+                      )}
+                      {videoFile.isExpired && !videoFile.segmentData && (
+                        <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded">
+                          Expired
                         </span>
                       )}
                     </div>

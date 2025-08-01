@@ -7,9 +7,20 @@ import Navbar from '../components/Navbar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { toast } from 'react-toastify';
+import { authClient } from '@/lib/auth-client';
 
 // Type definition for learning content
-type LearningContent = {
+interface User {
+  id: string
+  name: string
+  email: string
+  emailVerified: boolean
+  image: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type LearningContent = {
   id: string;
   title: string;
   description: string;
@@ -17,19 +28,22 @@ type LearningContent = {
   level: 'Beginner' | 'Intermediate' | 'Advanced';
   estimatedTime: number;
   rating?: number;
+  creator: User;
   createdAt: string;
   updatedAt: string;
 };
 
 export default function MyLearningPage() {
   const queryClient = useQueryClient();
-  
+  const { data: session } = authClient.useSession();
+
   const { data: learningList = [], isLoading } = useQuery({ 
-    queryKey: ['learning'], 
+    queryKey: ['my-learning'], 
     queryFn: async () => {
-      const res = await api.get('/learning')
+      const res = await api.get(`/learning/user/${session?.user.id}`)
       return res.data as LearningContent[]
-    }
+    },
+    enabled: !!session?.user.id
   })
 
   // Delete mutation
@@ -96,7 +110,7 @@ const getLevelColor = (level: string) => {
   }
 };
 
-  if (isLoading) {
+  if (isLoading || !session?.user.id) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-12 px-4">
         <div className="max-w-6xl mx-auto">

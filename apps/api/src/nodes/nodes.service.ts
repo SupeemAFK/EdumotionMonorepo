@@ -29,12 +29,14 @@ export class NodesService {
 
         if (files.video) {
             const videoKey = await this.uploadToS3(files.video[0], 'file', nodeId);
-            videoUrl = await this.getUrl(videoKey);
+            // Store the S3 key instead of signed URL to avoid expiration
+            videoUrl = videoKey;
         }
 
         if (files.materials) {
             const materialsKey = await this.uploadToS3(files.materials[0], 'file', nodeId);
-            materialsUrl = await this.getUrl(materialsKey);
+            // Store the S3 key instead of signed URL to avoid expiration
+            materialsUrl = materialsKey;
         }
 
         return {
@@ -83,6 +85,24 @@ export class NodesService {
           expiresIn: 3600,
         });
         return signedUrl;
+    }
+
+    // Generate fresh signed URL from S3 key
+    async getFreshSignedUrl(s3Key: string): Promise<string> {
+        const command = new GetObjectCommand({
+          Bucket: process.env.S3_BUCKET,
+          Key: s3Key,
+        });
+    
+        const signedUrl = await getSignedUrl(this.client, command, {
+          expiresIn: 86400, // 24 hours instead of 1 hour for longer validity
+        });
+        return signedUrl;
+    }
+
+    // Check if a string is an S3 key (not a signed URL)
+    isS3Key(value: string): boolean {
+        return value && !value.startsWith('http') && !value.includes('X-Amz-');
     }
     
     async create(createNodeDto: CreateNodeDto, files: { video?: Express.Multer.File[], materials?: Express.Multer.File[] }) {

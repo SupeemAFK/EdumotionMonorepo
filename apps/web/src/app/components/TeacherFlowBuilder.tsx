@@ -86,7 +86,11 @@ export type UploadedFile = {
     startTime: number;
     endTime: number;
     color: string;
+    isExpired?: boolean;
+    originalFileName?: string;
+    segmentTitle?: string;
   };
+  isExpired?: boolean; // Flag for expired URLs
 };
 
 export type FlowNodeData = {
@@ -227,9 +231,11 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
                   // Try to parse as JSON (for video segments)
                   const videoData = JSON.parse(node.video);
                   if (videoData.isSegment && videoData.url) {
+                    // Backend now handles URL expiration automatically by generating fresh signed URLs
+                    
                     return [{
                       id: `video-${node.id}`,
-                      name: `${node.title}.mp4`,
+                      name: `${videoData.segmentTitle || node.title}.mp4`,
                       size: 0,
                       type: 'video/mp4',
                       url: videoData.url,
@@ -237,7 +243,9 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
                       segmentData: {
                         startTime: videoData.startTime,
                         endTime: videoData.endTime,
-                        color: '#3b82f6' // Default color for loaded segments
+                        color: '#3b82f6', // Default color for loaded segments
+                        originalFileName: videoData.originalFileName,
+                        segmentTitle: videoData.segmentTitle
                       }
                     }];
                   }
@@ -245,14 +253,14 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
                   // Not JSON, treat as regular video URL
                 }
                 
-                // Regular video file
+                // Regular video file - backend now handles URL expiration automatically
                 return [{
                   id: `video-${node.id}`,
                   name: `${node.title}.mp4`,
                   size: 0,
                   type: 'video/mp4',
-                  url: node.video,
-                  uploadedAt: new Date(node.createdAt),
+                  url: node.video, // Backend provides fresh signed URLs
+                  uploadedAt: new Date(node.createdAt)
                 }];
               })() : []),
               // Add materials if exists (not for Start/End nodes)
@@ -310,9 +318,19 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
         const pendingLearningId = localStorage.getItem('pendingLearningId');
         
         if (storedData && pendingLearningId === learningId && (!graphData || !graphData.hasGraph)) {
-          const { segments, originalVideoFile, timestamp, hasVideoFile } = JSON.parse(storedData);
+          console.log('📦 Raw localStorage data:', storedData);
+          const parsedData = JSON.parse(storedData);
+          console.log('📋 Parsed localStorage data:', parsedData);
           
-          console.log('Loading video segments from localStorage:', { segments, originalVideoFile, timestamp, hasVideoFile });
+          const { segments, originalVideoFile, timestamp, hasVideoFile } = parsedData;
+          
+          console.log('Loading video segments from localStorage:', { 
+            segmentsCount: segments?.length, 
+            originalVideoFile, 
+            timestamp, 
+            hasVideoFile,
+            segments: segments?.slice(0, 2) // Show first 2 segments for debugging
+          });
           
           // Check if data is fresh (within 5 minutes)
           const now = Date.now();
@@ -327,19 +345,82 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
             return;
           }
 
-          // Get the original video file from IndexedDB
+          // Get the original video file from IndexedDB or localStorage fallback
           let recreatedVideoFile: File | null = null;
           if (hasVideoFile) {
             try {
+              console.log('🔍 Attempting to retrieve video file from IndexedDB...');
               recreatedVideoFile = await getVideoFileFromIndexedDB('pendingVideo');
               if (recreatedVideoFile) {
-                console.log('✅ Retrieved original video file from IndexedDB');
+                console.log('✅ Retrieved original video file from IndexedDB:', {
+                  name: recreatedVideoFile.name,
+                  size: recreatedVideoFile.size,
+                  type: recreatedVideoFile.type
+                });
               } else {
-                console.warn('⚠️ Video file not found in IndexedDB, segments may not work properly');
+                console.warn('⚠️ Video file not found in IndexedDB, trying localStorage fallback...');
+                
+                // Try localStorage fallback
+                if (originalVideoFile && originalVideoFile.dataUrl) {
+                  console.log('🔄 Attempting to recreate video file from localStorage dataUrl...');
+                  try {
+                    const response = await fetch(originalVideoFile.dataUrl);
+                    const blob = await response.blob();
+                    recreatedVideoFile = new File([blob], originalVideoFile.name, {
+                      type: originalVideoFile.type,
+                      lastModified: Date.now()
+                    });
+                    console.log('✅ Recreated video file from localStorage dataUrl');
+                  } catch (dataUrlError) {
+                    console.error('❌ Failed to recreate video file from dataUrl:', dataUrlError);
+                  }
+                } else {
+                  console.log('🔍 Checking IndexedDB contents...');
+                  // Try to debug IndexedDB contents
+                  try {
+                    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+                      const request = indexedDB.open('VideoEditorDB', 1);
+                      request.onerror = () => reject(request.error);
+                      request.onsuccess = () => resolve(request.result);
+                    });
+                    const transaction = db.transaction(['videos'], 'readonly');
+                    const store = transaction.objectStore('videos');
+                    const getAllRequest = store.getAll();
+                    getAllRequest.onsuccess = () => {
+                      console.log('📋 IndexedDB contents:', getAllRequest.result);
+                    };
+                  } catch (dbError) {
+                    console.error('Error checking IndexedDB:', dbError);
+                  }
+                }
               }
             } catch (error) {
               console.error('Failed to retrieve video file from IndexedDB:', error);
+              
+              // Try localStorage fallback on error
+              if (originalVideoFile && originalVideoFile.dataUrl) {
+                console.log('🔄 IndexedDB failed, trying localStorage fallback...');
+                try {
+                  const response = await fetch(originalVideoFile.dataUrl);
+                  const blob = await response.blob();
+                  recreatedVideoFile = new File([blob], originalVideoFile.name, {
+                    type: originalVideoFile.type,
+                    lastModified: Date.now()
+                  });
+                  console.log('✅ Fallback: Recreated video file from localStorage dataUrl');
+                } catch (dataUrlError) {
+                  console.error('❌ Fallback also failed:', dataUrlError);
+                }
+              }
             }
+          } else {
+            console.log('ℹ️ No video file flag set, skipping video file retrieval');
+          }
+          
+          // If we still don't have a video file, let's try to check if segments have any fallback data
+          if (!recreatedVideoFile) {
+            console.log('🔍 No video file available, checking if segments have fallback data...');
+            console.log('📋 First segment data:', segments?.[0]);
           }
 
           // Convert segments to nodes with individual file objects
@@ -385,6 +466,13 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
                 isStartNode: false,
                 isEndNode: false,
                 files: recreatedVideoFile ? (() => {
+                  console.log(`🎬 Creating segment file for: ${segment.title}`, {
+                    segmentFileName: segment.fileName,
+                    originalVideoName: recreatedVideoFile.name,
+                    startTime: segment.startTime,
+                    endTime: segment.endTime
+                  });
+                  
                   // Create a new File object for this specific segment
                   const segmentFile = new File([recreatedVideoFile], segment.fileName, {
                     type: segment.fileType,
@@ -399,12 +487,15 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
                     originalFileName: recreatedVideoFile.name
                   };
                   
+                  const blobUrl = URL.createObjectURL(segmentFile);
+                  console.log(`✅ Created blob URL for segment: ${blobUrl}`);
+                  
                   return [{
                   id: `video-${segment.id}`,
                     name: segment.fileName,
                     size: segment.fileSize,
                     type: segment.fileType,
-                    url: URL.createObjectURL(segmentFile),
+                    url: blobUrl,
                   uploadedAt: new Date(),
                     file: segmentFile, // Store the actual File object
                   segmentData: {
@@ -413,7 +504,10 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
                     color: segment.color
                   }
                   }];
-                })() : [],
+                })() : (() => {
+                  console.warn(`⚠️ No recreated video file available for segment: ${segment.title}`);
+                  return [];
+                })(),
               },
               type: "teacherFlowNode",
             };
