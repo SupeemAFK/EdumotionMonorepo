@@ -11,6 +11,7 @@ interface SkillNodeData extends Record<string, unknown> {
   video: string;
   status: 'completed' | 'current' | 'locked' | 'available';
   duration: string;
+  type?: string;
   videoSegments?: {
     id: string;
     title: string;
@@ -24,6 +25,14 @@ type SkillLearningNodeProps = NodeProps<Node<SkillNodeData>>;
 
 export default function SkillLearningNode({ data, selected }: SkillLearningNodeProps) {
   const getStatusColor = () => {
+    // Special styling for start and end nodes
+    if (data.type === 'start') {
+      return 'border-emerald-500 bg-emerald-500/20';
+    }
+    if (data.type === 'end') {
+      return 'border-red-500 bg-red-500/20';
+    }
+    
     switch (data.status) {
       case 'completed': return 'border-green-500 bg-green-500/10';
       case 'current': return 'border-blue-500 bg-blue-500/10';
@@ -34,6 +43,14 @@ export default function SkillLearningNode({ data, selected }: SkillLearningNodeP
   };
 
   const getStatusIcon = () => {
+    // Special icons for start and end nodes
+    if (data.type === 'start') {
+      return <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>;
+    }
+    if (data.type === 'end') {
+      return <div className="w-3 h-3 bg-red-500 rounded-full"></div>;
+    }
+    
     switch (data.status) {
       case 'completed': return <FaCheck className="text-green-500" />;
       case 'current': return <FaPlay className="text-blue-500" />;
@@ -43,7 +60,7 @@ export default function SkillLearningNode({ data, selected }: SkillLearningNodeP
     }
   };
 
-  const isInteractive = data.status !== 'locked';
+  const isInteractive = data.status !== 'locked' && data.type !== 'start' && data.type !== 'end';
 
   return (
     <div
@@ -100,12 +117,16 @@ export default function SkillLearningNode({ data, selected }: SkillLearningNodeP
         <div className="absolute top-2 right-2">
           <div className={`
             px-2 py-1 rounded-full text-xs font-medium
+            ${data.type === 'start' ? 'bg-emerald-500/20 text-emerald-600' : ''}
+            ${data.type === 'end' ? 'bg-red-500/20 text-red-600' : ''}
             ${data.status === 'completed' ? 'bg-green-500/20 text-green-400' : ''}
             ${data.status === 'current' ? 'bg-blue-500/20 text-blue-400' : ''}
             ${data.status === 'available' ? 'bg-purple-500/20 text-purple-400' : ''}
             ${data.status === 'locked' ? 'bg-gray-200/50 text-gray-500' : ''}
           `}>
-            {data.status === 'completed' ? 'Done' : 
+            {data.type === 'start' ? 'Start' :
+             data.type === 'end' ? 'End' :
+             data.status === 'completed' ? 'Done' : 
              data.status === 'current' ? 'Active' : 
              data.status === 'available' ? 'Ready' : 'Locked'}
           </div>

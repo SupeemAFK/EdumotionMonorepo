@@ -21,6 +21,7 @@ import LearningWebcam from "./LearningWebcam";
 
 interface SkillLearningFlowProps {
   skillId: string;
+  learningData?: any;
 }
 
 interface SkillNodeData extends Record<string, unknown> {
@@ -29,6 +30,15 @@ interface SkillNodeData extends Record<string, unknown> {
   video: string;
   status: 'completed' | 'current' | 'locked' | 'available';
   duration: string;
+  type?: string;
+  videoData?: {
+    url: string;
+    startTime?: number;
+    endTime?: number;
+    isSegment?: boolean;
+    originalFileName?: string;
+    segmentTitle?: string;
+  };
   videoSegments?: {
     id: string;
     title: string;
@@ -532,9 +542,119 @@ const getSkillData = (skillId: string) => {
 
 const nodeTypes = { skillLearningNode: SkillLearningNode };
 
-function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
+function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowProps) {
   const router = useRouter();
-  const skillData = getSkillData(skillId);
+  
+  // Convert API data to the format expected by the component
+  const convertApiDataToSkillData = (apiData: any) => {
+    if (!apiData?.learning) {
+      return getSkillData(skillId); // Fallback to mock data
+    }
+
+    const learning = apiData.learning;
+    
+    // Sort nodes by creation date to maintain order
+    const sortedNodes = [...learning.nodes].sort((a, b) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+
+    // Find start and end nodes
+    const startNode = sortedNodes.find((node: any) => node.type === 'start');
+    const endNode = sortedNodes.find((node: any) => node.type === 'end');
+    const learningNodes = sortedNodes.filter((node: any) => node.type !== 'start' && node.type !== 'end');
+
+    // Find the first learning node (should be current)
+    const firstLearningNode = learningNodes[0];
+    
+    // Convert nodes to the expected format
+    const convertedNodes = sortedNodes.map((node: any, index: number) => {
+      let status: 'completed' | 'current' | 'locked' | 'available' = 'locked';
+      
+      if (node.type === 'start' || node.type === 'end') {
+        // Start and end nodes are not interactive
+        status = 'locked';
+      } else if (node.id === firstLearningNode?.id) {
+        // First learning node is current
+        status = 'current';
+      } else {
+        // For now, make other learning nodes available (you can implement more complex logic later)
+        const nodeIndex = learningNodes.findIndex((n: any) => n.id === node.id);
+        status = nodeIndex <= 1 ? 'available' : 'locked';
+      }
+
+      // Handle different video URL formats
+      let videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4"; // Default fallback
+      let videoData = null;
+      
+      if (node.video) {
+        try {
+          // Try to parse as JSON (video segment data)
+          videoData = JSON.parse(node.video);
+          if (videoData.url) {
+            videoUrl = videoData.url;
+            console.log(`🎬 Video segment detected for ${node.title}:`, {
+              originalUrl: videoData.url,
+              startTime: videoData.startTime,
+              endTime: videoData.endTime,
+              isSegment: videoData.isSegment
+            });
+          }
+        } catch {
+          // Not JSON, treat as regular URL
+          videoUrl = node.video;
+          console.log(`🎬 Regular video URL for ${node.title}:`, videoUrl);
+        }
+      }
+      
+      console.log(`🎬 Converting node ${node.title}:`, {
+        originalVideo: node.video,
+        finalVideoUrl: videoUrl,
+        hasOriginalVideo: !!node.video,
+        nodeType: node.type,
+        status: status,
+        isSegment: !!videoData
+      });
+
+      return {
+        id: node.id,
+        position: { x: node.positionX || 0, y: node.positionY || (index * 400) },
+        data: {
+          label: node.title,
+          description: node.description,
+          video: videoUrl,
+          status: status,
+          duration: videoData && videoData.startTime !== undefined && videoData.endTime !== undefined 
+            ? `${Math.ceil((videoData.endTime - videoData.startTime) / 60)} min`
+            : "15 min",
+          materials: node.materials,
+          type: node.type,
+          videoData: videoData, // Include the parsed video data for segments
+        },
+        type: "skillLearningNode",
+      };
+    });
+
+    // Convert edges to the expected format
+    const convertedEdges = learning.edges.map((edge: any) => ({
+      id: edge.id,
+      type: "smoothstep",
+      source: edge.fromNode,
+      target: edge.toNode,
+      markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+      animated: true,
+    }));
+
+    return {
+      title: learning.title,
+      description: learning.description,
+      creator: learning.creator?.name || "Unknown",
+      totalDuration: "2h 30m", // Could be calculated from nodes
+      nodes: convertedNodes,
+      edges: convertedEdges,
+    };
+  };
+
+  const skillData = learningData ? convertApiDataToSkillData(learningData) : getSkillData(skillId);
   const [nodes, setNodes, onNodesChange] = useNodesState(skillData.nodes);
   const [edges, , onEdgesChange] = useEdgesState(skillData.edges);
   const [selectedNode, setSelectedNode] = useState<Node<SkillNodeData> | null>(null);
@@ -542,7 +662,28 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     const typedNode = node as Node<SkillNodeData>;
-    if (typedNode.data.status === 'locked') return;
+    // Prevent clicking on locked nodes, start nodes, or end nodes
+    if (typedNode.data.status === 'locked' || 
+        typedNode.data.type === 'start' || 
+        typedNode.data.type === 'end') {
+      console.log(`🚫 Node click blocked:`, {
+        nodeId: typedNode.id,
+        title: typedNode.data.label,
+        status: typedNode.data.status,
+        type: typedNode.data.type
+      });
+      return;
+    }
+    
+    console.log(`🎯 Node clicked:`, {
+      nodeId: typedNode.id,
+      title: typedNode.data.label,
+      video: typedNode.data.video,
+      hasVideo: !!typedNode.data.video,
+      status: typedNode.data.status,
+      type: typedNode.data.type
+    });
+    
     setSelectedNode(typedNode);
   }, []);
 
@@ -748,16 +889,78 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
               </div>
 
               <div className="aspect-video bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
-                <video
-                  src={selectedNode.data.video}
-                  controls
-                  className="w-full h-full rounded-lg"
-                  onPlay={() => setIsVideoPlaying(true)}
-                  onPause={() => setIsVideoPlaying(false)}
-                />
+                {selectedNode.data.video ? (
+                  <video
+                    src={selectedNode.data.video}
+                    controls
+                    className="w-full h-full rounded-lg"
+                    onPlay={() => {
+                      console.log(`▶️ Video started playing:`, selectedNode.data.video);
+                      setIsVideoPlaying(true);
+                    }}
+                    onPause={() => {
+                      console.log(`⏸️ Video paused:`, selectedNode.data.video);
+                      setIsVideoPlaying(false);
+                    }}
+                    onError={(e) => {
+                      console.error(`❌ Video error:`, {
+                        videoSrc: selectedNode.data.video,
+                        videoData: selectedNode.data.videoData,
+                        error: e.currentTarget.error,
+                        networkState: e.currentTarget.networkState,
+                        readyState: e.currentTarget.readyState
+                      });
+                    }}
+                    onLoadStart={() => {
+                      console.log(`🔄 Video load started:`, {
+                        src: selectedNode.data.video,
+                        videoData: selectedNode.data.videoData,
+                        isSegment: !!selectedNode.data.videoData?.isSegment
+                      });
+                    }}
+                    onCanPlay={() => {
+                      console.log(`✅ Video can play:`, selectedNode.data.video);
+                    }}
+                    onLoadedMetadata={(e) => {
+                      console.log(`📊 Video metadata loaded:`, {
+                        duration: e.currentTarget.duration,
+                        videoWidth: e.currentTarget.videoWidth,
+                        videoHeight: e.currentTarget.videoHeight
+                      });
+                      
+                      // If this is a video segment, set the current time to start time
+                      if (selectedNode.data.videoData?.startTime !== undefined) {
+                        e.currentTarget.currentTime = selectedNode.data.videoData.startTime;
+                        console.log(`⏭️ Set video start time to:`, selectedNode.data.videoData.startTime);
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-gray-500">
+                    <div className="text-4xl mb-2">🎥</div>
+                    <p>No video available</p>
+                  </div>
+                )}
               </div>
 
               <p className="text-gray-600 mb-4">{selectedNode.data.description}</p>
+
+              {/* Debug Info */}
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg text-xs">
+                <h4 className="font-semibold mb-2">Debug Info:</h4>
+                <div className="space-y-1">
+                  <div><strong>Video URL:</strong> {selectedNode.data.video || 'None'}</div>
+                  <div><strong>Has Video:</strong> {selectedNode.data.video ? 'Yes' : 'No'}</div>
+                  <div><strong>Is Segment:</strong> {selectedNode.data.videoData?.isSegment ? 'Yes' : 'No'}</div>
+                  {selectedNode.data.videoData?.startTime !== undefined && (
+                    <div><strong>Start Time:</strong> {selectedNode.data.videoData.startTime}s</div>
+                  )}
+                  {selectedNode.data.videoData?.endTime !== undefined && (
+                    <div><strong>End Time:</strong> {selectedNode.data.videoData.endTime}s</div>
+                  )}
+                  <div><strong>Node Type:</strong> {selectedNode.data.type || 'Unknown'}</div>
+                </div>
+              </div>
 
               <div className="flex gap-4">
                 <motion.button
@@ -786,10 +989,10 @@ function SkillLearningFlowContent({ skillId }: SkillLearningFlowProps) {
   );
 }
 
-export default function SkillLearningFlow({ skillId }: SkillLearningFlowProps) {
+export default function SkillLearningFlow({ skillId, learningData }: SkillLearningFlowProps) {
   return (
     <ReactFlowProvider>
-      <SkillLearningFlowContent skillId={skillId} />
+      <SkillLearningFlowContent skillId={skillId} learningData={learningData} />
     </ReactFlowProvider>
   );
 } 

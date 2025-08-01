@@ -25,6 +25,7 @@ model user {
   sessions    session[]
   accounts    account[]
   learnings   learning[] @relation("UserLearnings")
+  learnprogress learnprogress[]
 }
 
 model session {
@@ -80,6 +81,7 @@ model learning {
   creator    user     @relation("UserLearnings", fields: [creatorId], references: [id])
   nodes      node[]
   edges      edge[]
+  learnprogress learnprogress[]
 }
 
 model node {
@@ -113,4 +115,16 @@ model edge {
   learning    learning @relation(fields: [learningId], references: [id])
   from        node     @relation("FromNode", fields: [fromNode], references: [id])
   to          node     @relation("ToNode", fields: [toNode], references: [id])
+}
+
+model learnprogress {
+  id String @id @default(uuid())
+  userId String
+  learningId String
+  currentNode String
+  createdAt DateTime
+  updatedAt DateTime
+
+  user user @relation(fields: [userId], references: [id])
+  learning learning @relation(fields: [learningId], references: [id])
 }

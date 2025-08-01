@@ -6,6 +6,7 @@ import { LearningModule } from './learning/learning.module';
 import { NodesModule } from './nodes/nodes.module';
 import { EdgesModule } from './edges/edges.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { LearnprogressModule } from './learnprogress/learnprogress.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PrismaModule } from './prisma/prisma.module';
     LearningModule,
     NodesModule,
     EdgesModule,
+    LearnprogressModule,
   ],
   controllers: [AppController],
   providers: [AppService],
