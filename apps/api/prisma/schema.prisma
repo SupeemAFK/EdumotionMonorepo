@@ -86,14 +86,14 @@ model node {
   id          String   @id @default(uuid())
   title       String
   description String
-  video       String
-  materials   String
+  video       String?
+  materials   String?
   positionX   Float
   positionY   Float
   learningId  String
-  algorithm   String
+  algorithm   String?
   type        String
-  threshold   Float
+  threshold   Float?
   createdAt  DateTime
   updatedAt  DateTime
 

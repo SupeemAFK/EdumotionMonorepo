@@ -106,8 +106,9 @@ export default function FlowSidebar({ isOpen, onClose, selectedNode, onUpdateNod
       name: file.name,
       size: file.size,
       type: file.type,
-      url: URL.createObjectURL(file), // In a real app, this would be uploaded to a server
+      url: URL.createObjectURL(file),
       uploadedAt: new Date(),
+      file: file, // Keep reference to original File object
     }));
 
     setLocalData({
@@ -156,6 +157,7 @@ export default function FlowSidebar({ isOpen, onClose, selectedNode, onUpdateNod
       type: file.type,
       url: URL.createObjectURL(file),
       uploadedAt: new Date(),
+      file: file, // Keep reference to original File object
     }));
 
     setLocalData({
@@ -217,7 +219,8 @@ export default function FlowSidebar({ isOpen, onClose, selectedNode, onUpdateNod
           </div>
         </div>
 
-        {/* File Upload Section */}
+        {/* File Upload Section - Only for regular nodes */}
+        {!localData.isStartNode && !localData.isEndNode && (
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-800 flex items-center gap-2">
             <IoCloudUpload className="w-5 h-5" />
@@ -240,13 +243,16 @@ export default function FlowSidebar({ isOpen, onClose, selectedNode, onUpdateNod
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.mp4,.mov,.avi"
+              accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.mp4,.mov,.avi,.mkv,.webm"
               onChange={handleFileUpload}
               className="hidden"
             />
             <IoCloudUpload className={`w-8 h-8 mx-auto mb-2 ${dragOver ? 'text-blue-400' : 'text-gray-500'}`} />
             <p className="text-sm text-gray-600 mb-2">
-              {dragOver ? 'Drop files here' : 'Drag and drop files here, or click to select'}
+              {dragOver ? 'Drop files here' : 'Upload videos and materials'}
+            </p>
+            <p className="text-xs text-gray-500 mb-3">
+              Videos: MP4, MOV, AVI, MKV, WebM • Materials: PDF, DOC, Images
             </p>
             <button
               onClick={triggerFileUpload}
@@ -256,39 +262,92 @@ export default function FlowSidebar({ isOpen, onClose, selectedNode, onUpdateNod
             </button>
           </div>
 
-          {/* Uploaded Files List */}
+          {/* Categorized Files Display */}
           {localData.files.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-gray-700">
-                Uploaded Files ({localData.files.length})
-              </h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {localData.files.map((file) => {
-                  const FileIcon = getFileIcon(file.type);
-                  return (
-                    <div key={file.id} className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                      <FileIcon className="w-5 h-5 text-blue-500" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 truncate">{file.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {formatFileSize(file.size)} • {new Date(file.uploadedAt).toLocaleDateString()}
+            <div className="space-y-4">
+              {/* Video Files */}
+              {localData.files.some(file => file.type.includes('video')) && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <FaFileVideo className="w-4 h-4 text-red-500" />
+                    Video Files ({localData.files.filter(file => file.type.includes('video')).length})
+                  </h4>
+                  <div className="space-y-2">
+                    {localData.files.filter(file => file.type.includes('video')).map((file) => (
+                      <div key={file.id} className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <FaFileVideo className="w-5 h-5 text-red-500" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">{file.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {formatFileSize(file.size)} • {new Date(file.uploadedAt).toLocaleDateString()}
+                          </div>
                         </div>
+                        <button
+                          onClick={() => handleFileDelete(file.id)}
+                          className="p-1 hover:bg-red-200 rounded transition-colors"
+                        >
+                          <IoTrash className="w-4 h-4 text-red-600" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleFileDelete(file.id)}
-                        className="p-1 hover:bg-gray-200 rounded transition-colors"
-                      >
-                        <IoTrash className="w-4 h-4 text-red-500" />
-                      </button>
-                    </div>
-                  );
-                })}
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Material Files */}
+              {localData.files.some(file => !file.type.includes('video')) && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <FaFile className="w-4 h-4 text-blue-500" />
+                    Materials ({localData.files.filter(file => !file.type.includes('video')).length})
+                  </h4>
+                  <div className="space-y-2">
+                    {localData.files.filter(file => !file.type.includes('video')).map((file) => {
+                      const FileIcon = getFileIcon(file.type);
+                      return (
+                        <div key={file.id} className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <FileIcon className="w-5 h-5 text-blue-500" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">{file.name}</div>
+                            <div className="text-xs text-gray-500">
+                              {formatFileSize(file.size)} • {new Date(file.uploadedAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleFileDelete(file.id)}
+                            className="p-1 hover:bg-blue-200 rounded transition-colors"
+                          >
+                            <IoTrash className="w-4 h-4 text-blue-600" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Upload Guidelines */}
+          {localData.files.length === 0 && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <IoInformationCircle className="w-4 h-4 text-amber-600 mt-0.5" />
+                <div className="text-sm text-amber-800">
+                  <p className="font-medium mb-1">Upload Guidelines:</p>
+                  <ul className="text-xs space-y-1">
+                    <li>• Upload at least one video file for the learning content</li>
+                    <li>• Add materials like PDFs, documents, or images as supplements</li>
+                    <li>• Files will be uploaded when you save the entire flow</li>
+                  </ul>
+                </div>
               </div>
             </div>
           )}
         </div>
+        )}
 
-        {/* AI Model Selection */}
+        {/* AI Model Selection - Only for regular nodes */}
         {!localData.isStartNode && !localData.isEndNode && (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-800 flex items-center gap-2">

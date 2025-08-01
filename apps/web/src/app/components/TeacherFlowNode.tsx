@@ -98,9 +98,9 @@ export default function TeacherFlowNode({ data, selected }: NodeProps<Node<FlowN
                       <p className="text-gray-600 text-sm mt-1">{data.description}</p>
         </div>
 
-        {/* AI Model Section */}
-                  {hasAIModel && (
-            <div className="p-4 border-b border-gray-200">
+        {/* AI Model Section - Only for regular nodes */}
+        {hasAIModel && !isStart && !isEnd && (
+          <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">AI Detection</span>
               <div className={`px-2 py-1 rounded-full text-xs bg-gradient-to-r ${getAIModelColor(data.aiModel)} text-white`}>
@@ -113,31 +113,63 @@ export default function TeacherFlowNode({ data, selected }: NodeProps<Node<FlowN
           </div>
         )}
 
-        {/* Files Section */}
-        {data.files && data.files.length > 0 && (
+        {/* Files Section - Only for regular nodes */}
+        {data.files && data.files.length > 0 && !isStart && !isEnd && (
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-700">Learning Materials</span>
-            <span className="text-xs text-gray-500">{data.files.length} file(s)</span>
+              <span className="text-sm font-medium text-gray-700">Learning Materials</span>
+              <div className="flex items-center gap-1">
+                {data.files.some(file => file.type.includes('video')) && (
+                  <div className="w-2 h-2 bg-red-500 rounded-full" title="Has video files"></div>
+                )}
+                {data.files.some(file => !file.type.includes('video')) && (
+                  <div className="w-2 h-2 bg-blue-500 rounded-full" title="Has material files"></div>
+                )}
+                <span className="text-xs text-gray-500 ml-1">{data.files.length} file(s)</span>
+              </div>
             </div>
             <div className="space-y-2 max-h-32 overflow-y-auto">
-              {data.files.slice(0, 3).map((file) => {
+              {/* Show video files first */}
+              {data.files.filter(file => file.type.includes('video')).slice(0, 2).map((file) => (
+                <div key={file.id} className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                  <FaFileVideo className="w-3 h-3 text-red-500" />
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate text-gray-800">{file.name}</div>
+                    <div className="text-gray-500">{formatFileSize(file.size)}</div>
+                  </div>
+                </div>
+              ))}
+              {/* Show material files */}
+              {data.files.filter(file => !file.type.includes('video')).slice(0, 2).map((file) => {
                 const FileIcon = getFileIcon(file.type);
                 return (
-                  <div key={file.id} className="flex items-center gap-2 p-2 bg-gray-700 rounded text-xs">
-                    <FileIcon className="w-3 h-3 text-blue-400" />
+                  <div key={file.id} className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                    <FileIcon className="w-3 h-3 text-blue-500" />
                     <div className="flex-1 min-w-0">
-                                        <div className="truncate text-gray-800">{file.name}</div>
-                  <div className="text-gray-500">{formatFileSize(file.size)}</div>
+                      <div className="truncate text-gray-800">{file.name}</div>
+                      <div className="text-gray-500">{formatFileSize(file.size)}</div>
                     </div>
                   </div>
                 );
               })}
-              {data.files.length > 3 && (
+              {data.files.length > 4 && (
                 <div className="text-xs text-gray-500 text-center">
-                  +{data.files.length - 3} more files
+                  +{data.files.length - 4} more files
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State for Files - Only for regular nodes */}
+        {(!data.files || data.files.length === 0) && !isStart && !isEnd && (
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Learning Materials</span>
+              <span className="text-xs text-amber-600">No files uploaded</span>
+            </div>
+            <div className="text-xs text-gray-500 bg-amber-50 border border-amber-200 rounded p-2">
+              Click to configure and upload video/materials
             </div>
           </div>
         )}

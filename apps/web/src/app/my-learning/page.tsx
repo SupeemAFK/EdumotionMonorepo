@@ -5,7 +5,7 @@ import { BookOpen, Clock, Tag, BarChart3, Edit, Trash2, Eye, Users, Star, Plus }
 import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '@/lib/api';
 
 // Type definition for learning content
 type LearningContent = {
@@ -24,7 +24,7 @@ export default function MyLearningPage() {
   const { data: learningList = [], isLoading } = useQuery({ 
     queryKey: ['learning'], 
     queryFn: async () => {
-      const res = await axios.get('http://localhost:3001/learning')
+      const res = await api.get('/learning')
       return res.data as LearningContent[]
     }
   })
@@ -187,7 +187,7 @@ const getLevelColor = (level: string) => {
                 {/* Action Buttons */}
                 <div className="flex flex-col gap-2">
                   <div className="flex gap-2">
-                    <Link href={`/teacher/${learning.id}`} className="flex-1">
+                    <Link href={`/teacher/${learning.id}/graph`} className="flex-1">
                       <button className="w-full edu-button-primary py-2 text-sm flex items-center justify-center gap-2">
                         <Eye className="w-4 h-4" />
                         View

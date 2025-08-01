@@ -1,15 +1,23 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFile, UploadedFiles } from '@nestjs/common';
 import { NodesService } from './nodes.service';
 import { CreateNodeDto } from './dto/createNodeDto';
 import { UpdateNodeDto } from './dto/updateNodeDto';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('nodes')
 export class NodesController {
   constructor(private readonly nodesService: NodesService) {}
 
   @Post()
-  create(@Body() createNodeDto: CreateNodeDto) {
-    return this.nodesService.create(createNodeDto);
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: 'video', maxCount: 1 },
+    { name: 'materials', maxCount: 1 },
+  ]))
+  create(
+    @Body() createNodeDto: CreateNodeDto,
+    @UploadedFiles() files: { video?: Express.Multer.File[], materials?: Express.Multer.File[] }
+  ) {
+    return this.nodesService.create(createNodeDto, files);
   }
 
   @Get()
@@ -23,8 +31,16 @@ export class NodesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateNodeDto: UpdateNodeDto) {
-    return this.nodesService.update(id, updateNodeDto);
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: 'video', maxCount: 1 },
+    { name: 'materials', maxCount: 1 },
+  ]))
+  update(
+    @Param('id') id: string, 
+    @Body() updateNodeDto: UpdateNodeDto,
+    @UploadedFiles() files: { video?: Express.Multer.File[], materials?: Express.Multer.File[] }
+  ) {
+    return this.nodesService.update(id, updateNodeDto, files);
   }
 
   @Delete(':id')

@@ -1,0 +1,17 @@
+{
+  "name": "save-graph-api-test",
+  "version": "1.0.0",
+  "description": "Test script for save learning graph API",
+  "main": "test-save-graph.js",
+  "scripts": {
+    "test": "node test-save-graph.js",
+    "test:curl": "bash test-with-curl.sh"
+  },
+  "dependencies": {
+    "form-data": "^4.0.0"
+  },
+  "devDependencies": {},
+  "keywords": ["test", "api", "learning", "graph"],
+  "author": "",
+  "license": "ISC"
+}

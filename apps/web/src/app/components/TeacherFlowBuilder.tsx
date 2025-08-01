@@ -20,6 +20,9 @@ import {
 import '@xyflow/react/dist/style.css';
 import TeacherFlowNode from "./TeacherFlowNode";
 import FlowSidebar from "./FlowSidebar";
+import VideoUploadModal from "./VideoUploadModal";
+import { api } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 
 export type AIModelType = 'vision-language' | 'object-detection' | 'motion-matching';
 
@@ -30,6 +33,7 @@ export type UploadedFile = {
   type: string;
   url: string;
   uploadedAt: Date;
+  file?: File; // Keep reference to original File object for uploading
 };
 
 export type FlowNodeData = {
@@ -63,19 +67,38 @@ const initialEdges: Edge[] = [];
 
 const nodeTypes: NodeTypes = { teacherFlowNode: TeacherFlowNode };
 
-function FlowBuilder() {
+interface FlowBuilderProps {
+  learningId: string;
+}
+
+function FlowBuilder({ learningId }: FlowBuilderProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [showVideoUpload, setShowVideoUpload] = useState(false);
+  const [videoUploadPosition, setVideoUploadPosition] = useState({ x: 0, y: 0 });
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     visible: boolean;
     nodeId?: string;
   }>({ x: 0, y: 0, visible: false });
+
+  // Load existing graph data
+  const { data: graphData, isLoading: isLoadingGraph } = useQuery({
+    queryKey: ['learning-graph', learningId],
+    queryFn: async () => {
+      const response = await api.get(`/learning/${learningId}/graph`);
+      return response.data;
+    },
+  });
   
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -83,12 +106,80 @@ function FlowBuilder() {
   // Keyboard shortcuts
   const deletePressed = useKeyPress(['Delete', 'Backspace']);
 
-  // Load video segments from localStorage and convert to nodes
+  // Load existing graph data from server
+  useEffect(() => {
+    if (graphData && !isLoaded && !isLoadingGraph) {
+      if (graphData.hasGraph && graphData.learning.nodes.length > 0) {
+        // Convert server data to ReactFlow format
+        const loadedNodes: Node<FlowNodeData>[] = graphData.learning.nodes.map((node: any) => ({
+          id: node.id,
+          position: { x: node.positionX, y: node.positionY },
+          data: {
+            label: node.title,
+            description: node.description,
+            aiModel: (node.type === 'start' || node.type === 'end') ? null : 
+                     (node.algorithm === 'basic' || !node.algorithm) ? null : (node.algorithm as AIModelType),
+            threshold: (node.type === 'start' || node.type === 'end') ? 0.8 : (node.threshold || 0.8),
+            isStartNode: node.type === 'start',
+            isEndNode: node.type === 'end',
+            files: [
+              // Add video file if exists (not for Start/End nodes)
+              ...((node.video && node.type !== 'start' && node.type !== 'end') ? [{
+                id: `video-${node.id}`,
+                name: `${node.title}.mp4`,
+                size: 0,
+                type: 'video/mp4',
+                url: node.video,
+                uploadedAt: new Date(node.createdAt),
+              }] : []),
+              // Add materials if exists (not for Start/End nodes)
+              ...((node.materials && node.type !== 'start' && node.type !== 'end') ? JSON.parse(node.materials).map((material: any) => ({
+                id: material.id,
+                name: material.name,
+                size: material.size,
+                type: material.type,
+                url: material.url,
+                uploadedAt: new Date(node.createdAt),
+              })) : [])
+            ],
+          },
+          type: "teacherFlowNode",
+          deletable: node.type !== 'start',
+        }));
+
+        const loadedEdges: Edge[] = graphData.learning.edges.map((edge: any) => ({
+          id: edge.id,
+          source: edge.fromNode,
+          target: edge.toNode,
+          type: "smoothstep",
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 20,
+            height: 20,
+            color: '#9CA3AF',
+          },
+          style: {
+            strokeWidth: 2,
+            stroke: '#9CA3AF',
+          },
+          animated: true,
+        }));
+
+        setNodes(loadedNodes);
+        setEdges(loadedEdges);
+        setIsLoaded(true);
+      }
+    }
+  }, [graphData, isLoaded, isLoadingGraph, setNodes, setEdges]);
+
+  // Load video segments from localStorage and convert to nodes (only if no existing graph)
   useEffect(() => {
     const loadVideoSegments = () => {
       try {
         const storedData = localStorage.getItem('videoSegments');
-        if (storedData) {
+        const pendingLearningId = localStorage.getItem('pendingLearningId');
+        
+        if (storedData && pendingLearningId === learningId && (!graphData || !graphData.hasGraph)) {
           const { segments, videoFile, timestamp } = JSON.parse(storedData);
           
           // Check if data is fresh (within 5 minutes)
@@ -192,15 +283,17 @@ function FlowBuilder() {
 
           // Clean up localStorage
           localStorage.removeItem('videoSegments');
+          localStorage.removeItem('pendingLearningId');
         }
       } catch (error) {
         console.error('Error loading video segments:', error);
         localStorage.removeItem('videoSegments');
+        localStorage.removeItem('pendingLearningId');
       }
     };
 
     loadVideoSegments();
-  }, []);
+  }, [learningId, graphData]);
 
   // Helper function to format time
   const formatTime = (time: number) => {
@@ -300,23 +393,58 @@ function FlowBuilder() {
       y: contextMenu.y,
     });
 
+    if (type === 'end') {
+      // End nodes don't need video, create directly
+      const newNode: Node<FlowNodeData> = {
+        id: `node-${Date.now()}`,
+        position,
+        data: {
+          label: 'End',
+          description: 'End of the learning flow',
+          aiModel: null,
+          threshold: 0.8,
+          isEndNode: true,
+          files: [],
+        },
+        type: "teacherFlowNode",
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+      setContextMenu({ x: 0, y: 0, visible: false });
+    } else {
+      // Normal nodes require video upload first
+      setVideoUploadPosition(position);
+      setShowVideoUpload(true);
+      setContextMenu({ x: 0, y: 0, visible: false });
+    }
+  }, [contextMenu, screenToFlowPosition, setNodes]);
+
+  const handleVideoUploaded = useCallback((videoFile: File, title: string, description: string) => {
     const newNode: Node<FlowNodeData> = {
       id: `node-${Date.now()}`,
-      position,
+      position: videoUploadPosition,
       data: {
-        label: type === 'end' ? 'End' : `Step ${nodes.length}`,
-        description: type === 'end' ? 'End of the learning flow' : 'New learning step',
+        label: title,
+        description: description || 'New learning step',
         aiModel: null,
         threshold: 0.8,
-        isEndNode: type === 'end',
-        files: [],
+        isEndNode: false,
+        files: [{
+          id: `video-${Date.now()}`,
+          name: videoFile.name,
+          size: videoFile.size,
+          type: videoFile.type,
+          url: URL.createObjectURL(videoFile),
+          uploadedAt: new Date(),
+          file: videoFile,
+        }],
       },
       type: "teacherFlowNode",
     };
 
     setNodes((nds) => nds.concat(newNode));
-    setContextMenu({ x: 0, y: 0, visible: false });
-  }, [contextMenu, nodes.length, screenToFlowPosition, setNodes]);
+    setShowVideoUpload(false);
+  }, [videoUploadPosition, setNodes]);
 
   const updateNodeData = useCallback((nodeId: string, data: Partial<FlowNodeData>) => {
     setNodes((nds) =>
@@ -374,57 +502,162 @@ function FlowBuilder() {
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
 
-  // Save function to extract and log node and edge data
-  const handleSave = useCallback(() => {
-    const nodeDataToSave = nodes.map((node) => {
-      // Extract video URL from files if available
-      const videoFile = node.data.files.find(file => file.type.includes('video'));
-      const videoUrl = videoFile?.url || '';
-      
-      // Extract materials (non-video files) as JSON string
-      const materials = node.data.files
-        .filter(file => !file.type.includes('video'))
-        .map(file => ({
-          id: file.id,
-          name: file.name,
-          type: file.type,
-          url: file.url,
-          size: file.size
-        }));
+  // Helper function to convert URL to File object
+  const urlToFile = async (url: string, filename: string, mimeType: string): Promise<File> => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new File([blob], filename, { type: mimeType });
+  };
 
-      return {
-        title: node.data.label,
-        description: node.data.description,
-        video: videoUrl,
-        materials: JSON.stringify(materials),
-        positionX: node.position.x,
-        positionY: node.position.y,
-        learningId: "LEARNING_ID_PLACEHOLDER", // You'll need to replace this with actual learningId
-        algorithm: node.data.aiModel || 'none',
-        type: node.data.isStartNode ? 'start' : node.data.isEndNode ? 'end' : 'step',
-        threshold: node.data.threshold
+  // Save function to call the save-learning-graph API
+  const handleSave = useCallback(async () => {
+    if (!learningId) {
+      setSaveError('Learning ID is required');
+      return;
+    }
+
+    if (nodes.length === 0) {
+      setSaveError('Cannot save empty graph. Please add at least one node.');
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      // Create FormData for multipart upload
+      const formData = new FormData();
+
+      // Prepare nodes data and collect files
+      const nodeDataToSave = [];
+      const fileMap = new Map<string, File>();
+
+      for (const node of nodes) {
+        // Find video file
+        const videoFile = node.data.files.find(file => file.type.includes('video'));
+        const materialsFiles = node.data.files.filter(file => !file.type.includes('video'));
+        const nodeType = node.data.isStartNode ? 'start' : node.data.isEndNode ? 'end' : 'step';
+
+        const nodeData: any = {
+          id: node.id, // Use current node ID as temporary ID for API
+          title: node.data.label,
+          description: node.data.description,
+          positionX: node.position.x,
+          positionY: node.position.y,
+          type: nodeType,
+        };
+
+        // Only add algorithm and threshold for step nodes
+        if (nodeType === 'step') {
+          nodeData.algorithm = node.data.aiModel || 'basic';
+          nodeData.threshold = node.data.threshold || 0.8;
+        }
+
+        // Only add file field names for step nodes
+        if (nodeType === 'step') {
+          if (videoFile) {
+            nodeData.videoFieldName = `${node.id}_video`;
+          }
+          if (materialsFiles.length > 0) {
+            nodeData.materialsFieldName = `${node.id}_materials`;
+          }
+        }
+
+        nodeDataToSave.push(nodeData);
+
+        // Add File objects directly to FormData (skip for Start/End nodes)
+        if (nodeType !== 'start' && nodeType !== 'end') {
+          if (videoFile && videoFile.file) {
+            formData.append(`${node.id}_video`, videoFile.file);
+          } else if (videoFile) {
+            // Fallback: try to convert URL to File (for video segments from video editor)
+            try {
+              const file = await urlToFile(videoFile.url, videoFile.name, videoFile.type);
+              formData.append(`${node.id}_video`, file);
+            } catch (error) {
+              console.error(`Error converting video file for node ${node.id}:`, error);
+            }
+          }
+
+          if (materialsFiles.length > 0) {
+            // For now, take the first materials file. You can modify this to handle multiple files
+            const materialsFile = materialsFiles[0];
+            if (materialsFile.file) {
+              formData.append(`${node.id}_materials`, materialsFile.file);
+            } else {
+              // Fallback: try to convert URL to File
+              try {
+                const file = await urlToFile(materialsFile.url, materialsFile.name, materialsFile.type);
+                formData.append(`${node.id}_materials`, file);
+              } catch (error) {
+                console.error(`Error converting materials file for node ${node.id}:`, error);
+              }
+            }
+          }
+        }
+      }
+
+      // Prepare edges data
+      const edgeDataToSave = edges.map((edge) => ({
+        fromNode: edge.source,
+        toNode: edge.target
+      }));
+
+      // Prepare the complete graph data
+      const graphData = {
+        learningId: learningId,
+        nodes: nodeDataToSave,
+        edges: edgeDataToSave
       };
-    });
 
-    const edgeDataToSave = edges.map((edge) => ({
-      learningId: "LEARNING_ID_PLACEHOLDER", // You'll need to replace this with actual learningId
-      fromNode: edge.source,
-      toNode: edge.target
-    }));
+      // Add JSON data to FormData
+      formData.append('saveLearningGraphDto', JSON.stringify(graphData));
 
-    console.log('Nodes data to save:', nodeDataToSave);
-    console.log('Edges data to save:', edgeDataToSave);
-    
-    // You can replace these console.logs with your API calls
-    // Example: 
-    // await saveNodesToDatabase(nodeDataToSave);
-    // await saveEdgesToDatabase(edgeDataToSave);
-    
-    return {
-      nodes: nodeDataToSave,
-      edges: edgeDataToSave
-    };
-  }, [nodes, edges]);
+      console.log('Saving graph data:', JSON.stringify(graphData, null, 2));
+      console.log('FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value instanceof File ? `File: ${value.name}` : value]));
+      
+      // Validate step nodes have required video files
+      const stepNodes = graphData.nodes.filter(node => node.type === 'step');
+      const missingVideoNodes = stepNodes.filter(node => node.videoFieldName && !Array.from(formData.entries()).some(([key]) => key === node.videoFieldName));
+      
+      if (missingVideoNodes.length > 0) {
+        throw new Error(`Missing video files for nodes: ${missingVideoNodes.map(n => n.title).join(', ')}`);
+      }
+
+      // Make API call
+      const response = await api.post('/learning/save-learning-graph', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      console.log('Save successful:', response.data);
+      setSaveSuccess(true);
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000);
+
+    } catch (error: any) {
+      console.error('Save failed:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      let errorMessage = 'Failed to save learning graph';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setSaveError(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [nodes, edges, learningId]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -432,6 +665,18 @@ function FlowBuilder() {
       deleteSelected();
     }
   }, [deletePressed, deleteSelected]);
+
+  // Show loading state while fetching graph data
+  if (isLoadingGraph) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-transparent">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading learning graph...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full bg-transparent flex">
@@ -465,16 +710,62 @@ function FlowBuilder() {
           <Controls className="react-flow__controls" />
           
           {/* Save Button */}
-          <div className="absolute top-4 right-4 z-50">
+          <div className="absolute top-4 right-4 z-50 flex flex-col items-end gap-2">
             <button
               onClick={handleSave}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 font-medium animate-in slide-in-from-right-2"
+              disabled={isSaving}
+              className={`px-6 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 font-medium animate-in slide-in-from-right-2 ${
+                isSaving
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : saveSuccess
+                  ? 'bg-green-500 hover:bg-green-600'
+                  : 'bg-blue-500 hover:bg-blue-600'
+              } text-white`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              Save Flow
+              {isSaving ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : saveSuccess ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Saved!
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  Save Flow
+                </>
+              )}
             </button>
+            
+            {/* Error Message */}
+            {saveError && (
+              <div className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm max-w-xs animate-in slide-in-from-right-2">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{saveError}</span>
+                </div>
+                <button
+                  onClick={() => setSaveError(null)}
+                  className="absolute top-1 right-1 text-white hover:text-gray-200"
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
           
           {/* Floating Toolbar */}
@@ -560,6 +851,14 @@ function FlowBuilder() {
           </div>
         )}
 
+        {/* Video Upload Modal */}
+        <VideoUploadModal
+          isOpen={showVideoUpload}
+          onClose={() => setShowVideoUpload(false)}
+          onVideoUploaded={handleVideoUploaded}
+          position={videoUploadPosition}
+        />
+
         {/* Delete Confirmation Dialog */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in-0 duration-300">
@@ -608,11 +907,15 @@ function FlowBuilder() {
   );
 }
 
-export default function TeacherFlowBuilder() {
+interface TeacherFlowBuilderProps {
+  learningId: string;
+}
+
+export default function TeacherFlowBuilder({ learningId }: TeacherFlowBuilderProps) {
   return (
     <ReactFlowProvider>
       <div className="w-full h-full">
-        <FlowBuilder />
+        <FlowBuilder learningId={learningId} />
       </div>
     </ReactFlowProvider>
   );

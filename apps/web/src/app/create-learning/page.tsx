@@ -7,8 +7,8 @@ import { z } from 'zod';
 import { BookOpen, Clock, Tag, BarChart3, FileText, Plus, X } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
 import { authClient } from '@/lib/auth-client';
+import { api } from '@/lib/api';
 
 const CreateLearningSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters").max(100, "Title must be less than 100 characters"),
@@ -35,7 +35,7 @@ interface CreateLearningDto {
 export default function CreateLearningPage() {
   const { mutate } = useMutation({
     mutationFn: async (body: CreateLearningDto) => {
-      const res = await axios.post('http://localhost:3001/learning', body)
+      const res = await api.post('/learning', body)
       return res
     }
   })

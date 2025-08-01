@@ -1,0 +1,85 @@
+### Test Save Learning Graph API
+POST http://localhost:3000/learning/save-learning-graph
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="saveLearningGraphDto"
+Content-Type: application/json
+
+{
+  "learningId": "your-existing-learning-id-here",
+  "nodes": [
+    {
+      "id": "temp_node_1",
+      "title": "Introduction to Programming",
+      "description": "Basic programming concepts",
+      "positionX": 100,
+      "positionY": 200,
+      "algorithm": "basic",
+      "type": "lecture",
+      "threshold": 0.8,
+      "videoFieldName": "node_1_video",
+      "materialsFieldName": "node_1_materials"
+    },
+    {
+      "id": "temp_node_2",
+      "title": "Variables and Functions",
+      "description": "Understanding variables and functions",
+      "positionX": 300,
+      "positionY": 200,
+      "algorithm": "intermediate",
+      "type": "practical",
+      "threshold": 0.7,
+      "videoFieldName": "node_2_video"
+    }
+  ],
+  "edges": [
+    {
+      "fromNode": "temp_node_1",
+      "toNode": "temp_node_2"
+    }
+  ]
+}
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="node_1_video"; filename="intro-video.mp4"
+Content-Type: video/mp4
+
+< ./test-files/intro-video.mp4
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="node_1_materials"; filename="intro-materials.pdf"
+Content-Type: application/pdf
+
+< ./test-files/intro-materials.pdf
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="node_2_video"; filename="variables-video.mp4"
+Content-Type: video/mp4
+
+< ./test-files/variables-video.mp4
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+### Test: Get Learning by ID (to verify the graph was saved)
+GET http://localhost:3000/learning/your-existing-learning-id-here
+
+###
+
+### Test: Create a new Learning first (if you need one)
+POST http://localhost:3000/learning
+Content-Type: application/json
+
+{
+  "title": "Test Learning Path",
+  "description": "A test learning path for API testing",
+  "tags": ["test", "api", "demo"],
+  "level": "beginner",
+  "rating": 4.0,
+  "estimatedTime": 60,
+  "creatorId": "test-user-123"
+}
+
+###

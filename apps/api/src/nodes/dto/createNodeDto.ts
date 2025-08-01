@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsArray } from 'class-validator';
+import { IsString, IsNumber } from 'class-validator';
 
 export class CreateNodeDto {
     @IsString()
@@ -8,15 +8,9 @@ export class CreateNodeDto {
     description: string;
 
     @IsString()
-    video: string;
-
-    @IsString()
-    materials: string;
-
-    @IsNumber()
     positionX: number;  
 
-    @IsNumber()
+    @IsString()
     positionY: number;
 
     @IsString()
@@ -28,6 +22,6 @@ export class CreateNodeDto {
     @IsString()
     type: string;
 
-    @IsNumber()
+    @IsString()
     threshold: number;
 }

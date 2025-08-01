@@ -1,7 +1,7 @@
 import Navbar from "../../components/Navbar";
 import TeacherFlowBuilder from "../../components/TeacherFlowBuilder";
 
-export default function TeacherPage() {
+export default function TeacherPage({ params }: { params: { id: string } }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 relative overflow-hidden">
       {/* Decorative background elements */}
@@ -22,7 +22,7 @@ export default function TeacherPage() {
       
       <Navbar />
       <div className="relative z-10 pt-16 h-screen">
-        <TeacherFlowBuilder />
+        <TeacherFlowBuilder learningId={params.id} />
       </div>
     </div>
   );

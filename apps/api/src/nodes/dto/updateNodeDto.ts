@@ -8,15 +8,9 @@ export class UpdateNodeDto {
     description: string;
 
     @IsString()
-    video: string;
-
-    @IsString()
-    materials: string;
-
-    @IsNumber()
     positionX: number;  
 
-    @IsNumber()
+    @IsString()
     positionY: number;
 
     @IsString()
@@ -25,6 +19,6 @@ export class UpdateNodeDto {
     @IsString()
     type: string;
 
-    @IsNumber()
+    @IsString()
     threshold: number;
 }
