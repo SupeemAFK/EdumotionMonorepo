@@ -31,6 +31,7 @@ interface SkillNodeData extends Record<string, unknown> {
   status: 'completed' | 'current' | 'locked' | 'available';
   duration: string;
   type?: string;
+  threshold?: number;
   videoData?: {
     url: string;
     startTime?: number;
@@ -687,10 +688,51 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
     setSelectedNode(typedNode);
   }, []);
 
-  const handleCheckCorrect = useCallback((nodeId: string) => {
+  const handleCheckCorrect = useCallback(async (nodeId: string) => {
     console.log('🔍 Check if correct clicked for node:', nodeId);
-    // Add your check logic here
-  }, []);
+    
+    // Find the current node
+    const node = nodes.find(n => n.id === nodeId) as Node<SkillNodeData> | undefined;
+    if (!node) {
+      console.error('Node not found:', nodeId);
+      return;
+    }
+
+    // Get the video URL from the node
+    const videoUrl = node.data.videoData?.url || node.data.video;
+    if (!videoUrl) {
+      console.error('No video found for node:', nodeId);
+      return;
+    }
+
+    try {
+      // Send video URL and threshold to our proxy API
+      // The proxy will handle downloading the video and calling the VLM API
+      const requestBody = {
+        video_url: videoUrl,
+        threshold: parseFloat(node.data.threshold?.toString() || '0.5')
+      };
+
+      // Call our proxy API route
+      const response = await fetch('/api/vlm-inference', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('VLM Inference Response:', result);
+      
+    } catch (error) {
+      console.error('Error calling VLM inference API:', error);
+    }
+  }, [nodes]);
 
   const handleBack = () => {
     router.push('/');
