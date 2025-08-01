@@ -3,7 +3,7 @@ import { Type } from 'class-transformer';
 
 export class NodeDto {
     @IsString()
-    id: string; // Temporary ID for referencing in edges
+    id: string; // Frontend temporary ID - backend will generate UUID v4
     
     @IsString()
     title: string;

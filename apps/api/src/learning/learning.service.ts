@@ -65,7 +65,15 @@ export class LearningService {
       // 2. Get existing nodes to preserve file URLs when no new files are uploaded
       const existingNodes = await prisma.node.findMany({
         where: { learningId: saveLearningGraphDto.learningId },
-        select: { id: true, video: true, materials: true }
+        select: { 
+          id: true, 
+          video: true, 
+          materials: true, 
+          type: true, 
+          title: true, 
+          positionX: true, 
+          positionY: true 
+        }
       });
 
       // 3. Delete all existing edges (will be recreated)
@@ -73,21 +81,45 @@ export class LearningService {
         where: { learningId: saveLearningGraphDto.learningId }
       });
 
-      // 4. Create a mapping from node IDs to actual database IDs
+      // 4. Create a mapping from frontend temp IDs to backend-generated UUIDs
       const nodeIdMapping = new Map<string, string>();
       const createdNodes = [];
 
       // 5. Process each node: create/update node records using pre-uploaded files
       for (const nodeDto of saveLearningGraphDto.nodes) {
-        // Use the node ID from the frontend (it's already a valid UUID)
-        const actualNodeId = nodeDto.id;
+        // Check if this node already exists (for updates)
+        // Try multiple strategies to match existing nodes:
+        // 1. Exact ID match (if frontend is sending consistent IDs)
+        // 2. Type + position match (for system nodes like start/end)
+        // 3. Title + type match (for content nodes)
+        const existingNode = existingNodes.find(n => {
+          // Strategy 1: Direct ID match (for existing graphs where frontend sends same ID)
+          if (n.id === nodeDto.id) {
+            return true;
+          }
+          
+          // Strategy 2: For start/end nodes, match by type and approximate position
+          if ((nodeDto.type === 'start' || nodeDto.type === 'end') && n.type === nodeDto.type) {
+            return Math.abs(n.positionX - nodeDto.positionX) < 50 && 
+                   Math.abs(n.positionY - nodeDto.positionY) < 50;
+          }
+          
+          // Strategy 3: For step nodes, match by title and type (more reliable than position)
+          if (nodeDto.type === 'step' && n.type === 'step' && n.title === nodeDto.title) {
+            return true;
+          }
+          
+          return false;
+        });
+        
+        // Generate new UUID for new nodes, or use existing UUID for updates
+        const actualNodeId = existingNode?.id || uuidv4();
         nodeIdMapping.set(nodeDto.id, actualNodeId);
+        
+        console.log(`Mapping frontend ID ${nodeDto.id} -> backend ID ${actualNodeId}`);
 
-        // Get existing node data
-        const existingNode = existingNodes.find(n => n.id === actualNodeId);
-
-        // Get pre-uploaded file URLs
-        const uploadedFileUrls = nodeFileUrls.get(actualNodeId) || { videoUrl: null, materialsUrl: null };
+        // Get pre-uploaded file URLs (using frontend temp ID since that's what was used for upload)
+        const uploadedFileUrls = nodeFileUrls.get(nodeDto.id) || { videoUrl: null, materialsUrl: null };
         
         console.log(`Processing node ${actualNodeId} (${nodeDto.title}):`);
         console.log(`  - Has existing video: ${!!existingNode?.video}`);
@@ -176,11 +208,11 @@ export class LearningService {
       }
 
       // 6. Delete nodes that are no longer in the graph
-      const currentNodeIds = saveLearningGraphDto.nodes.map(n => n.id);
+      const currentBackendNodeIds = Array.from(nodeIdMapping.values());
       await prisma.node.deleteMany({
         where: {
           learningId: saveLearningGraphDto.learningId,
-          id: { notIn: currentNodeIds }
+          id: { notIn: currentBackendNodeIds }
         }
       });
 
@@ -198,6 +230,7 @@ export class LearningService {
 
         const createdEdge = await prisma.edge.create({
           data: {
+            id: uuidv4(), // Generate UUID v4 for edge
             learningId: saveLearningGraphDto.learningId,
             fromNode: fromNodeId,
             toNode: toNodeId,
@@ -205,6 +238,8 @@ export class LearningService {
             updatedAt: new Date(),
           },
         });
+        
+        console.log(`Created edge ${createdEdge.id}: ${fromNodeId} -> ${toNodeId}`);
 
         createdEdges.push(createdEdge);
       }
@@ -215,11 +250,13 @@ export class LearningService {
         data: { updatedAt: new Date() },
       });
 
-      // 6. Return the complete graph data
+      // 6. Return the complete graph data with ID mapping
       return {
         learning,
         nodes: createdNodes,
         edges: createdEdges,
+        nodeIdMapping: Object.fromEntries(nodeIdMapping), // Convert Map to object for JSON response
+        message: `Successfully saved ${createdNodes.length} nodes and ${createdEdges.length} edges with backend-generated UUIDs`
       };
     }, {
       timeout: 120000, // 30 seconds timeout for database operations
