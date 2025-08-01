@@ -9,6 +9,7 @@ import Navbar from '../components/Navbar';
 import { useMutation } from '@tanstack/react-query';
 import { authClient } from '@/lib/auth-client';
 import { api } from '@/lib/api';
+import { toast } from 'react-toastify';
 
 const CreateLearningSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters").max(100, "Title must be less than 100 characters"),
@@ -37,6 +38,12 @@ export default function CreateLearningPage() {
     mutationFn: async (body: CreateLearningDto) => {
       const res = await api.post('/learning', body)
       return res
+    },
+    onSuccess: () => {
+      toast.success('Learning course created successfully!📕');
+    },
+    onError: () => {
+      toast.error('Failed to create learning course. Please try again.');
     }
   })
   const { data: session } = authClient.useSession();

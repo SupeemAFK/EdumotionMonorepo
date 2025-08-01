@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { BookOpen, Clock, Tag, BarChart3, Edit, Trash2, Eye, Users, Star, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { BookOpen, Clock, Tag, BarChart3, Edit, Trash2, Eye, Star, Plus } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { toast } from 'react-toastify';
 
 // Type definition for learning content
 type LearningContent = {
@@ -40,10 +41,11 @@ export default function MyLearningPage() {
     onSuccess: () => {
       // Invalidate and refetch the learning list
       queryClient.invalidateQueries({ queryKey: ['learning'] });
+      toast.success('Learning course deleted successfully!');
     },
     onError: (error: any) => {
       console.error('Delete failed:', error);
-      alert('Failed to delete learning course. Please try again.');
+      toast.error('Failed to delete learning course. Please try again.');
     }
   });
 
@@ -69,8 +71,9 @@ export default function MyLearningPage() {
 
     try {
       await deleteMutation.mutateAsync(learningId);
-      alert('Learning course deleted successfully!');
-    } catch (error) {
+      toast.success('Learning course deleted successfully!🗑️');    
+    }
+    catch (error) {
       // Error handling is done in the mutation's onError callback
     }
   };

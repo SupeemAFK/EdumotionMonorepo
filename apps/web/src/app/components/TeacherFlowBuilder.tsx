@@ -23,6 +23,7 @@ import FlowSidebar from "./FlowSidebar";
 import VideoUploadModal from "./VideoUploadModal";
 import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "react-toastify";
 
 export type AIModelType = 'vision-language' | 'object-detection' | 'motion-matching';
 
@@ -607,7 +608,6 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
 
       // Prepare nodes data and collect files
       const nodeDataToSave = [];
-      const fileMap = new Map<string, File>();
 
       for (const node of nodes) {
         // Find video file
@@ -686,9 +686,9 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
       // Prepare the complete graph data
       const graphData = {
         learningId: learningId,
-      nodes: nodeDataToSave,
-      edges: edgeDataToSave
-    };
+        nodes: nodeDataToSave,
+        edges: edgeDataToSave
+      };
 
       // Add JSON data to FormData
       formData.append('saveLearningGraphDto', JSON.stringify(graphData));
@@ -716,6 +716,7 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
 
       console.log('Save successful:', response.data);
       setSaveSuccess(true);
+      toast.success('Learning graph saved successfully!✨');
       
       // Reset change tracking after successful save
       setInitialGraphState({ nodes: [...nodes], edges: [...edges] });
@@ -724,7 +725,8 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
       // Hide success message after 3 seconds
       setTimeout(() => setSaveSuccess(false), 3000);
 
-    } catch (error: any) {
+    } 
+    catch (error: any) {
       console.error('Save failed:', error);
       console.error('Error response:', error.response?.data);
       console.error('Error status:', error.response?.status);
@@ -740,6 +742,7 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
       }
       
       setSaveError(errorMessage);
+      toast.error('Failed to save learning graph. Please try again.');
     } finally {
       setIsSaving(false);
     }

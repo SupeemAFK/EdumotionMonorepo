@@ -20,9 +20,40 @@ export class LearningService {
     // Validate that we have all required files
     await this.validateFilesForNodes(saveLearningGraphDto.nodes, files, saveLearningGraphDto.learningId);
 
-    // Use a transaction to ensure all operations succeed or fail together
-    return await this.prismaService.$transaction(async (prisma) => {
-      // 1. Verify the learning record exists
+    // 1. First, upload all files outside the transaction (this is the slow part)
+    const nodeFileUrls = new Map<string, { videoUrl?: string, materialsUrl?: string }>();
+    const uploadedFilesList: string[] = []; // Track uploaded files for cleanup on error
+    
+    try {
+      for (const nodeDto of saveLearningGraphDto.nodes) {
+        if (nodeDto.type === 'start' || nodeDto.type === 'end') {
+          continue; // Skip file uploads for system nodes
+        }
+
+        const nodeFiles = this.extractFilesForNode(nodeDto, files);
+        
+        if (nodeFiles.video || nodeFiles.materials) {
+          console.log(`Uploading files for node ${nodeDto.id}...`);
+          const fileUrls = await this.nodesService.uploadNodeFile(nodeFiles, nodeDto.id);
+          nodeFileUrls.set(nodeDto.id, fileUrls);
+          
+          // Track uploaded files for potential cleanup
+          if (fileUrls.videoUrl) uploadedFilesList.push(fileUrls.videoUrl);
+          if (fileUrls.materialsUrl) uploadedFilesList.push(fileUrls.materialsUrl);
+          
+          console.log(`Files uploaded for node ${nodeDto.id}:`, fileUrls);
+        }
+      }
+    } catch (uploadError) {
+      console.error('File upload failed:', uploadError);
+      // TODO: Add cleanup logic here if needed (delete uploaded files)
+      throw uploadError;
+    }
+
+    // 2. Now use a fast transaction for database operations only
+    try {
+      return await this.prismaService.$transaction(async (prisma) => {
+        // 1. Verify the learning record exists
       const learning = await prisma.learning.findUnique({
         where: { id: saveLearningGraphDto.learningId },
       });
@@ -46,7 +77,7 @@ export class LearningService {
       const nodeIdMapping = new Map<string, string>();
       const createdNodes = [];
 
-      // 5. Process each node: upload files and create/update node records
+      // 5. Process each node: create/update node records using pre-uploaded files
       for (const nodeDto of saveLearningGraphDto.nodes) {
         // Use the node ID from the frontend (it's already a valid UUID)
         const actualNodeId = nodeDto.id;
@@ -55,20 +86,14 @@ export class LearningService {
         // Get existing node data
         const existingNode = existingNodes.find(n => n.id === actualNodeId);
 
-        // Extract files for this node
-        const nodeFiles = this.extractFilesForNode(nodeDto, files);
-
-        // Upload files and get URLs (only if files are provided)
-        let fileUrls = { videoUrl: null, materialsUrl: null };
-        if (nodeFiles.video || nodeFiles.materials) {
-          fileUrls = await this.nodesService.uploadNodeFile(nodeFiles, actualNodeId);
-        }
+        // Get pre-uploaded file URLs
+        const uploadedFileUrls = nodeFileUrls.get(actualNodeId) || { videoUrl: null, materialsUrl: null };
 
         // Determine final file URLs (use new uploads if available, otherwise keep existing)
         const finalVideoUrl = (nodeDto.type === 'start' || nodeDto.type === 'end') ? null :
-          (fileUrls.videoUrl || existingNode?.video || null);
+          (uploadedFileUrls.videoUrl || existingNode?.video || null);
         const finalMaterialsUrl = (nodeDto.type === 'start' || nodeDto.type === 'end') ? null :
-          (fileUrls.materialsUrl || existingNode?.materials || null);
+          (uploadedFileUrls.materialsUrl || existingNode?.materials || null);
 
         // Create or update the node record
         const createdNode = await prisma.node.upsert({
@@ -151,7 +176,14 @@ export class LearningService {
         nodes: createdNodes,
         edges: createdEdges,
       };
+    }, {
+      timeout: 120000, // 30 seconds timeout for database operations
     });
+    } catch (transactionError) {
+      console.error('Transaction failed:', transactionError);
+      // TODO: Add cleanup logic here if needed (delete uploaded files)
+      throw transactionError;
+    }
   }
 
   private async validateFilesForNodes(nodes: NodeDto[], files: Express.Multer.File[], learningId: string) {
