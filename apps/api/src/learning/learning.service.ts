@@ -88,27 +88,57 @@ export class LearningService {
 
         // Get pre-uploaded file URLs
         const uploadedFileUrls = nodeFileUrls.get(actualNodeId) || { videoUrl: null, materialsUrl: null };
+        
+        console.log(`Processing node ${actualNodeId} (${nodeDto.title}):`);
+        console.log(`  - Has existing video: ${!!existingNode?.video}`);
+        console.log(`  - Has new video upload: ${!!uploadedFileUrls.videoUrl}`);
+        console.log(`  - Has segment data: ${nodeDto.videoStartTime !== undefined || nodeDto.videoEndTime !== undefined}`);
 
         // Determine final file URLs (use new uploads if available, otherwise keep existing)
         let finalVideoUrl = (nodeDto.type === 'start' || nodeDto.type === 'end') ? null :
           (uploadedFileUrls.videoUrl || existingNode?.video || null);
         
-        // If this is a video segment, store the segment data with the video URL
-        if (finalVideoUrl && (nodeDto.videoStartTime !== undefined || nodeDto.videoEndTime !== undefined)) {
-          const videoData = {
-            url: finalVideoUrl,
-            startTime: nodeDto.videoStartTime,
-            endTime: nodeDto.videoEndTime,
-            isSegment: true,
-            // Additional metadata for segments
-            originalFileName: nodeDto.originalFileName || 'video.mp4',
-            segmentTitle: nodeDto.title || 'Video Segment'
-          };
-          finalVideoUrl = JSON.stringify(videoData);
+        // Handle video segment data carefully
+        if (finalVideoUrl) {
+          // Check if we have new segment data from the frontend
+          if (nodeDto.videoStartTime !== undefined || nodeDto.videoEndTime !== undefined) {
+            // We have segment timing data, create/update segment structure
+            let baseVideoUrl = finalVideoUrl;
+            
+            // If existing video is already a segment, extract the base URL
+            if (existingNode?.video && !uploadedFileUrls.videoUrl) {
+              try {
+                const existingVideoData = JSON.parse(existingNode.video);
+                if (existingVideoData.url) {
+                  baseVideoUrl = existingVideoData.url; // Use existing S3 key
+                }
+              } catch {
+                // Not JSON, use as-is
+                baseVideoUrl = existingNode.video;
+              }
+            }
+            
+            const videoData = {
+              url: baseVideoUrl,
+              startTime: nodeDto.videoStartTime,
+              endTime: nodeDto.videoEndTime,
+              isSegment: true,
+              // Preserve existing metadata or use defaults
+              originalFileName: nodeDto.originalFileName || 'video.mp4',
+              segmentTitle: nodeDto.title || 'Video Segment'
+            };
+            finalVideoUrl = JSON.stringify(videoData);
+          } else if (existingNode?.video && !uploadedFileUrls.videoUrl) {
+            // No new segment data and no new upload, preserve existing video data exactly
+            finalVideoUrl = existingNode.video;
+          }
         }
         
         const finalMaterialsUrl = (nodeDto.type === 'start' || nodeDto.type === 'end') ? null :
           (uploadedFileUrls.materialsUrl || existingNode?.materials || null);
+
+        console.log(`  - Final video URL: ${finalVideoUrl ? (finalVideoUrl.length > 100 ? finalVideoUrl.substring(0, 100) + '...' : finalVideoUrl) : 'null'}`);
+        console.log(`  - Final materials URL: ${finalMaterialsUrl ? (finalMaterialsUrl.length > 50 ? finalMaterialsUrl.substring(0, 50) + '...' : finalMaterialsUrl) : 'null'}`);
 
         // Create or update the node record
         const createdNode = await prisma.node.upsert({

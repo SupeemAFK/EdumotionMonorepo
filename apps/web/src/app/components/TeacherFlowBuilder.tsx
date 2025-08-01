@@ -890,35 +890,45 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
 
         // Add File objects directly to FormData (skip for Start/End nodes)
         if (nodeType !== 'start' && nodeType !== 'end') {
-          // Only upload video file if it's a new File object (not just a URL from existing data)
+          // Only upload video file if it's a new File object or blob URL (not existing server URLs)
           if (videoFile && videoFile.file) {
+            // New file upload
             formData.append(`${node.id}_video`, videoFile.file);
+            console.log(`Adding new video file for node ${node.id}`);
           } else if (videoFile && videoFile.url && videoFile.url.startsWith('blob:')) {
-            // Only convert blob URLs (from video editor), not server URLs
+            // Convert blob URL to file (from video editor)
             try {
               const file = await urlToFile(videoFile.url, videoFile.name, videoFile.type);
               formData.append(`${node.id}_video`, file);
+              console.log(`Converting blob URL to file for node ${node.id}`);
             } catch (error) {
               console.error(`Error converting video file for node ${node.id}:`, error);
             }
+          } else if (videoFile && videoFile.url && !videoFile.url.startsWith('blob:')) {
+            // Existing server URL - don't upload, backend will preserve it
+            console.log(`Skipping existing video file for node ${node.id} (server URL)`);
           }
-          // Skip video files that are already server URLs (existing files)
 
           if (materialsFiles.length > 0) {
             // For now, take the first materials file. You can modify this to handle multiple files
             const materialsFile = materialsFiles[0];
             if (materialsFile.file) {
+              // New file upload
               formData.append(`${node.id}_materials`, materialsFile.file);
+              console.log(`Adding new materials file for node ${node.id}`);
             } else if (materialsFile.url && materialsFile.url.startsWith('blob:')) {
-              // Only convert blob URLs, not server URLs
+              // Convert blob URL to file
               try {
                 const file = await urlToFile(materialsFile.url, materialsFile.name, materialsFile.type);
                 formData.append(`${node.id}_materials`, file);
+                console.log(`Converting blob URL to materials file for node ${node.id}`);
               } catch (error) {
                 console.error(`Error converting materials file for node ${node.id}:`, error);
               }
+            } else if (materialsFile.url && !materialsFile.url.startsWith('blob:')) {
+              // Existing server URL - don't upload, backend will preserve it
+              console.log(`Skipping existing materials file for node ${node.id} (server URL)`);
             }
-            // Skip materials files that are already server URLs
           }
         }
       }
