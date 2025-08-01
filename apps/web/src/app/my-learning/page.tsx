@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { BookOpen, Clock, Tag, BarChart3, Edit, Trash2, Eye, Users, Star, Plus } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '../components/Navbar';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 // Type definition for learning content
@@ -21,6 +21,8 @@ type LearningContent = {
 };
 
 export default function MyLearningPage() {
+  const queryClient = useQueryClient();
+  
   const { data: learningList = [], isLoading } = useQuery({ 
     queryKey: ['learning'], 
     queryFn: async () => {
@@ -28,6 +30,23 @@ export default function MyLearningPage() {
       return res.data as LearningContent[]
     }
   })
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (learningId: string) => {
+      const response = await api.delete(`/learning/${learningId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate and refetch the learning list
+      queryClient.invalidateQueries({ queryKey: ['learning'] });
+    },
+    onError: (error: any) => {
+      console.error('Delete failed:', error);
+      alert('Failed to delete learning course. Please try again.');
+    }
+  });
+
   const [selectedLearning, setSelectedLearning] = useState<string | null>(null);
 
   // Template function to handle editing learning course
@@ -42,27 +61,19 @@ export default function MyLearningPage() {
     setSelectedLearning(learningId);
   };
 
-  // Template function to handle deleting learning course
+  // Handle deleting learning course
   const handleDelete = async (learningId: string) => {
-    if (!confirm('Are you sure you want to delete this learning course?')) {
+    if (!confirm('Are you sure you want to delete this learning course? This will permanently delete the course and all associated graph data (nodes and edges).')) {
       return;
     }
 
-        try {
-      // TODO: Implement your delete API call here
-      console.log('Deleting learning course with ID:', learningId);
-    
-    // Your API call would look like:
-    // await fetch(`/api/learning/${learningId}`, { method: 'DELETE' });
-    
-    // After successful deletion, you would need to refetch the data
-    // or use mutation with React Query to update the cache
-    
-  } catch (error) {
-    console.error('Error deleting learning course:', error);
-    alert('Failed to delete learning course');
-  }
-};
+    try {
+      await deleteMutation.mutateAsync(learningId);
+      alert('Learning course deleted successfully!');
+    } catch (error) {
+      // Error handling is done in the mutation's onError callback
+    }
+  };
 
 // Template function to handle viewing course analytics
 const handleViewAnalytics = (learningId: string) => {
@@ -211,10 +222,20 @@ const getLevelColor = (level: string) => {
                     </button>
                     <button
                       onClick={() => handleDelete(learning.id)}
-                      className="flex-1 border-2 border-red-200 text-red-600 rounded-xl hover:bg-red-50 hover:border-red-300 transition-all duration-200 py-2 text-sm flex items-center justify-center gap-2"
+                      disabled={deleteMutation.isPending}
+                      className="flex-1 border-2 border-red-200 text-red-600 rounded-xl hover:bg-red-50 hover:border-red-300 transition-all duration-200 py-2 text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
+                      {deleteMutation.isPending ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

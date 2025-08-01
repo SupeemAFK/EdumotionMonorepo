@@ -84,6 +84,8 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [showVideoUpload, setShowVideoUpload] = useState(false);
   const [videoUploadPosition, setVideoUploadPosition] = useState({ x: 0, y: 0 });
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [initialGraphState, setInitialGraphState] = useState<{ nodes: Node[], edges: Edge[] } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -105,6 +107,49 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
   
   // Keyboard shortcuts
   const deletePressed = useKeyPress(['Delete', 'Backspace']);
+
+  // Function to compare graph states and detect changes
+  const hasGraphChanged = useCallback((currentNodes: Node[], currentEdges: Edge[]) => {
+    if (!initialGraphState) {
+      // For new graphs, consider changes if we have more than just start/end nodes
+      const nonSystemNodes = currentNodes.filter(node => 
+        !node.data.isStartNode && !node.data.isEndNode
+      );
+      return nonSystemNodes.length > 0 || currentEdges.length > 0;
+    }
+
+    // Compare nodes
+    if (currentNodes.length !== initialGraphState.nodes.length) return true;
+    
+    for (let i = 0; i < currentNodes.length; i++) {
+      const currentNode = currentNodes[i];
+      const initialNode = initialGraphState.nodes.find(n => n.id === currentNode.id);
+      
+      if (!initialNode) return true;
+      
+      // Check position changes
+      if (currentNode.position.x !== initialNode.position.x || 
+          currentNode.position.y !== initialNode.position.y) return true;
+      
+      // Check data changes (simplified comparison)
+      if (JSON.stringify(currentNode.data) !== JSON.stringify(initialNode.data)) return true;
+    }
+
+    // Compare edges
+    if (currentEdges.length !== initialGraphState.edges.length) return true;
+    
+    for (let i = 0; i < currentEdges.length; i++) {
+      const currentEdge = currentEdges[i];
+      const initialEdge = initialGraphState.edges.find(e => e.id === currentEdge.id);
+      
+      if (!initialEdge) return true;
+      
+      if (currentEdge.source !== initialEdge.source || 
+          currentEdge.target !== initialEdge.target) return true;
+    }
+
+    return false;
+  }, [initialGraphState]);
 
   // Load existing graph data from server
   useEffect(() => {
@@ -167,10 +212,17 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
 
         setNodes(loadedNodes);
         setEdges(loadedEdges);
+        setInitialGraphState({ nodes: loadedNodes, edges: loadedEdges });
         setIsLoaded(true);
+      } else if (graphData && !graphData.hasGraph && !isLoaded) {
+        // For new graphs with no existing data, set initial state to current nodes/edges
+        setTimeout(() => {
+          setInitialGraphState({ nodes: [...nodes], edges: [...edges] });
+          setIsLoaded(true);
+        }, 100);
       }
     }
-  }, [graphData, isLoaded, isLoadingGraph, setNodes, setEdges]);
+  }, [graphData, isLoaded, isLoadingGraph, setNodes, setEdges, nodes, edges]);
 
   // Load video segments from localStorage and convert to nodes (only if no existing graph)
   useEffect(() => {
@@ -234,7 +286,10 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
           });
 
           // Add new nodes to existing nodes
-          setNodes((prevNodes) => [...prevNodes, ...newNodes]);
+          setNodes((prevNodes) => {
+            const updatedNodes = [...prevNodes, ...newNodes];
+            return updatedNodes;
+          });
 
           // Create edges to connect nodes sequentially
           const newEdges = newNodes.map((node: Node<FlowNodeData>, index: number) => {
@@ -279,7 +334,20 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
             }
           }).filter(Boolean);
 
-          setEdges((prevEdges) => [...prevEdges, ...newEdges]);
+          setEdges((prevEdges) => {
+            const updatedEdges = [...prevEdges, ...newEdges];
+            // Set initial state after all nodes and edges are loaded
+            setTimeout(() => {
+              setNodes((currentNodes) => {
+                setInitialGraphState({ 
+                  nodes: currentNodes, 
+                  edges: updatedEdges 
+                });
+                return currentNodes;
+              });
+            }, 100);
+            return updatedEdges;
+          });
 
           // Clean up localStorage
           localStorage.removeItem('videoSegments');
@@ -294,6 +362,14 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
 
     loadVideoSegments();
   }, [learningId, graphData]);
+
+  // Track changes and update hasUnsavedChanges
+  useEffect(() => {
+    if (initialGraphState && isLoaded) {
+      const changed = hasGraphChanged(nodes, edges);
+      setHasUnsavedChanges(changed);
+    }
+  }, [nodes, edges, hasGraphChanged, initialGraphState, isLoaded]);
 
   // Helper function to format time
   const formatTime = (time: number) => {
@@ -395,22 +471,22 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
 
     if (type === 'end') {
       // End nodes don't need video, create directly
-      const newNode: Node<FlowNodeData> = {
-        id: `node-${Date.now()}`,
-        position,
-        data: {
+    const newNode: Node<FlowNodeData> = {
+      id: `node-${Date.now()}`,
+      position,
+      data: {
           label: 'End',
           description: 'End of the learning flow',
-          aiModel: null,
-          threshold: 0.8,
+        aiModel: null,
+        threshold: 0.8,
           isEndNode: true,
-          files: [],
-        },
-        type: "teacherFlowNode",
-      };
+        files: [],
+      },
+      type: "teacherFlowNode",
+    };
 
-      setNodes((nds) => nds.concat(newNode));
-      setContextMenu({ x: 0, y: 0, visible: false });
+    setNodes((nds) => nds.concat(newNode));
+    setContextMenu({ x: 0, y: 0, visible: false });
     } else {
       // Normal nodes require video upload first
       setVideoUploadPosition(position);
@@ -535,16 +611,16 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
 
       for (const node of nodes) {
         // Find video file
-        const videoFile = node.data.files.find(file => file.type.includes('video'));
+      const videoFile = node.data.files.find(file => file.type.includes('video'));
         const materialsFiles = node.data.files.filter(file => !file.type.includes('video'));
         const nodeType = node.data.isStartNode ? 'start' : node.data.isEndNode ? 'end' : 'step';
 
         const nodeData: any = {
           id: node.id, // Use current node ID as temporary ID for API
-          title: node.data.label,
-          description: node.data.description,
-          positionX: node.position.x,
-          positionY: node.position.y,
+        title: node.data.label,
+        description: node.data.description,
+        positionX: node.position.x,
+        positionY: node.position.y,
           type: nodeType,
         };
 
@@ -556,9 +632,9 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
 
         // Only add file field names for step nodes
         if (nodeType === 'step') {
-          if (videoFile) {
-            nodeData.videoFieldName = `${node.id}_video`;
-          }
+          // Always set field names for step nodes, even if no file is currently available
+          // This helps with backend validation and file management
+          nodeData.videoFieldName = `${node.id}_video`;
           if (materialsFiles.length > 0) {
             nodeData.materialsFieldName = `${node.id}_materials`;
           }
@@ -568,10 +644,11 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
 
         // Add File objects directly to FormData (skip for Start/End nodes)
         if (nodeType !== 'start' && nodeType !== 'end') {
+          // Only upload video file if it's a new File object (not just a URL from existing data)
           if (videoFile && videoFile.file) {
             formData.append(`${node.id}_video`, videoFile.file);
-          } else if (videoFile) {
-            // Fallback: try to convert URL to File (for video segments from video editor)
+          } else if (videoFile && videoFile.url && videoFile.url.startsWith('blob:')) {
+            // Only convert blob URLs (from video editor), not server URLs
             try {
               const file = await urlToFile(videoFile.url, videoFile.name, videoFile.type);
               formData.append(`${node.id}_video`, file);
@@ -579,14 +656,15 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
               console.error(`Error converting video file for node ${node.id}:`, error);
             }
           }
+          // Skip video files that are already server URLs (existing files)
 
           if (materialsFiles.length > 0) {
             // For now, take the first materials file. You can modify this to handle multiple files
             const materialsFile = materialsFiles[0];
             if (materialsFile.file) {
               formData.append(`${node.id}_materials`, materialsFile.file);
-            } else {
-              // Fallback: try to convert URL to File
+            } else if (materialsFile.url && materialsFile.url.startsWith('blob:')) {
+              // Only convert blob URLs, not server URLs
               try {
                 const file = await urlToFile(materialsFile.url, materialsFile.name, materialsFile.type);
                 formData.append(`${node.id}_materials`, file);
@@ -594,22 +672,23 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
                 console.error(`Error converting materials file for node ${node.id}:`, error);
               }
             }
+            // Skip materials files that are already server URLs
           }
         }
       }
 
       // Prepare edges data
-      const edgeDataToSave = edges.map((edge) => ({
-        fromNode: edge.source,
-        toNode: edge.target
-      }));
+    const edgeDataToSave = edges.map((edge) => ({
+      fromNode: edge.source,
+      toNode: edge.target
+    }));
 
       // Prepare the complete graph data
       const graphData = {
         learningId: learningId,
-        nodes: nodeDataToSave,
-        edges: edgeDataToSave
-      };
+      nodes: nodeDataToSave,
+      edges: edgeDataToSave
+    };
 
       // Add JSON data to FormData
       formData.append('saveLearningGraphDto', JSON.stringify(graphData));
@@ -617,12 +696,15 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
       console.log('Saving graph data:', JSON.stringify(graphData, null, 2));
       console.log('FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value instanceof File ? `File: ${value.name}` : value]));
       
-      // Validate step nodes have required video files
-      const stepNodes = graphData.nodes.filter(node => node.type === 'step');
-      const missingVideoNodes = stepNodes.filter(node => node.videoFieldName && !Array.from(formData.entries()).some(([key]) => key === node.videoFieldName));
+      // Validate step nodes have required video files (either uploaded now or already exist)
+      const stepNodes = nodes.filter(node => !node.data.isStartNode && !node.data.isEndNode);
+      const missingVideoNodes = stepNodes.filter(node => {
+        const hasVideoFile = node.data.files.some(file => file.type.includes('video'));
+        return !hasVideoFile;
+      });
       
       if (missingVideoNodes.length > 0) {
-        throw new Error(`Missing video files for nodes: ${missingVideoNodes.map(n => n.title).join(', ')}`);
+        throw new Error(`Missing video files for nodes: ${missingVideoNodes.map(n => n.data.label).join(', ')}. Please upload videos for all learning steps.`);
       }
 
       // Make API call
@@ -634,6 +716,10 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
 
       console.log('Save successful:', response.data);
       setSaveSuccess(true);
+      
+      // Reset change tracking after successful save
+      setInitialGraphState({ nodes: [...nodes], edges: [...edges] });
+      setHasUnsavedChanges(false);
       
       // Hide success message after 3 seconds
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -709,18 +795,24 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
           <Background color="#e2e8f0" gap={20} />
           <Controls className="react-flow__controls" />
           
-          {/* Save Button */}
-          <div className="absolute top-4 right-4 z-50 flex flex-col items-end gap-2">
+          {/* Save Button - Only show when there are unsaved changes */}
+          {hasUnsavedChanges && (
+            <div className="absolute top-4 right-4 z-50 flex flex-col items-end gap-2">
+              {/* Unsaved changes indicator */}
+              <div className="bg-orange-100 border border-orange-200 text-orange-800 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                Unsaved changes
+              </div>
             <button
               onClick={handleSave}
-              disabled={isSaving}
-              className={`px-6 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 font-medium animate-in slide-in-from-right-2 ${
-                isSaving
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : saveSuccess
-                  ? 'bg-green-500 hover:bg-green-600'
-                  : 'bg-blue-500 hover:bg-blue-600'
-              } text-white`}
+                disabled={isSaving}
+                className={`px-6 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 font-medium animate-in slide-in-from-right-2 ${
+                  isSaving
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : saveSuccess
+                    ? 'bg-green-500 hover:bg-green-600'
+                    : 'bg-blue-500 hover:bg-blue-600'
+                } text-white`}
             >
               {isSaving ? (
                 <>
@@ -739,10 +831,10 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
                 </>
               ) : (
                 <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  Save Flow
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Save Flow
                 </>
               )}
             </button>
@@ -763,10 +855,11 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
-                </button>
-              </div>
-            )}
+            </button>
           </div>
+            )}
+            </div>
+          )}
           
           {/* Floating Toolbar */}
           {(selectedNodeId || selectedEdgeId) && (

@@ -18,7 +18,7 @@ export class LearningService {
     console.log('Received files:', files.map(f => ({ fieldname: f.fieldname, filename: f.originalname, size: f.size })));
     
     // Validate that we have all required files
-    this.validateFilesForNodes(saveLearningGraphDto.nodes, files);
+    await this.validateFilesForNodes(saveLearningGraphDto.nodes, files, saveLearningGraphDto.learningId);
 
     // Use a transaction to ensure all operations succeed or fail together
     return await this.prismaService.$transaction(async (prisma) => {
@@ -31,29 +31,66 @@ export class LearningService {
         throw new NotFoundException(`Learning with ID ${saveLearningGraphDto.learningId} not found`);
       }
 
-      // 2. Create a mapping from temporary node IDs to actual database IDs
+      // 2. Get existing nodes to preserve file URLs when no new files are uploaded
+      const existingNodes = await prisma.node.findMany({
+        where: { learningId: saveLearningGraphDto.learningId },
+        select: { id: true, video: true, materials: true }
+      });
+
+      // 3. Delete all existing edges (will be recreated)
+      await prisma.edge.deleteMany({
+        where: { learningId: saveLearningGraphDto.learningId }
+      });
+
+      // 4. Create a mapping from node IDs to actual database IDs
       const nodeIdMapping = new Map<string, string>();
       const createdNodes = [];
 
-      // 3. Process each node: upload files and create node records
+      // 5. Process each node: upload files and create/update node records
       for (const nodeDto of saveLearningGraphDto.nodes) {
-        const actualNodeId = uuidv4();
+        // Use the node ID from the frontend (it's already a valid UUID)
+        const actualNodeId = nodeDto.id;
         nodeIdMapping.set(nodeDto.id, actualNodeId);
+
+        // Get existing node data
+        const existingNode = existingNodes.find(n => n.id === actualNodeId);
 
         // Extract files for this node
         const nodeFiles = this.extractFilesForNode(nodeDto, files);
 
-        // Upload files and get URLs
-        const fileUrls = await this.nodesService.uploadNodeFile(nodeFiles, actualNodeId);
+        // Upload files and get URLs (only if files are provided)
+        let fileUrls = { videoUrl: null, materialsUrl: null };
+        if (nodeFiles.video || nodeFiles.materials) {
+          fileUrls = await this.nodesService.uploadNodeFile(nodeFiles, actualNodeId);
+        }
 
-        // Create the node record
-        const createdNode = await prisma.node.create({
-          data: {
+        // Determine final file URLs (use new uploads if available, otherwise keep existing)
+        const finalVideoUrl = (nodeDto.type === 'start' || nodeDto.type === 'end') ? null :
+          (fileUrls.videoUrl || existingNode?.video || null);
+        const finalMaterialsUrl = (nodeDto.type === 'start' || nodeDto.type === 'end') ? null :
+          (fileUrls.materialsUrl || existingNode?.materials || null);
+
+        // Create or update the node record
+        const createdNode = await prisma.node.upsert({
+          where: { id: actualNodeId },
+          update: {
+            title: nodeDto.title,
+            description: nodeDto.description,
+            video: finalVideoUrl,
+            materials: finalMaterialsUrl,
+            positionX: nodeDto.positionX,
+            positionY: nodeDto.positionY,
+            algorithm: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : nodeDto.algorithm,
+            type: nodeDto.type,
+            threshold: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : nodeDto.threshold,
+            updatedAt: new Date(),
+          },
+          create: {
             id: actualNodeId,
             title: nodeDto.title,
             description: nodeDto.description,
-            video: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : (fileUrls.videoUrl || null),
-            materials: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : fileUrls.materialsUrl,
+            video: finalVideoUrl,
+            materials: finalMaterialsUrl,
             positionX: nodeDto.positionX,
             positionY: nodeDto.positionY,
             learningId: saveLearningGraphDto.learningId,
@@ -67,6 +104,15 @@ export class LearningService {
 
         createdNodes.push(createdNode);
       }
+
+      // 6. Delete nodes that are no longer in the graph
+      const currentNodeIds = saveLearningGraphDto.nodes.map(n => n.id);
+      await prisma.node.deleteMany({
+        where: {
+          learningId: saveLearningGraphDto.learningId,
+          id: { notIn: currentNodeIds }
+        }
+      });
 
       // 4. Create edges using the actual node IDs
       const createdEdges = [];
@@ -108,8 +154,14 @@ export class LearningService {
     });
   }
 
-  private validateFilesForNodes(nodes: NodeDto[], files: Express.Multer.File[]) {
+  private async validateFilesForNodes(nodes: NodeDto[], files: Express.Multer.File[], learningId: string) {
     const fileFieldNames = files.map(file => file.fieldname);
+    
+    // Get existing nodes from database to check which ones already have files
+    const existingNodes = await this.prismaService.node.findMany({
+      where: { learningId },
+      select: { id: true, video: true, materials: true }
+    });
     
     for (const node of nodes) {
       // Skip validation for Start and End nodes
@@ -117,9 +169,14 @@ export class LearningService {
         continue;
       }
 
-      // Check if video file is provided (video is required for step nodes)
-      if (node.videoFieldName && !fileFieldNames.includes(node.videoFieldName)) {
-        throw new BadRequestException(`Missing video file for node ${node.id}: expected field ${node.videoFieldName}`);
+      const existingNode = existingNodes.find(existing => existing.id === node.id);
+      
+      // For step nodes, check if they have video (either uploaded now or already exist)
+      const hasVideoFile = node.videoFieldName && fileFieldNames.includes(node.videoFieldName);
+      const hasExistingVideo = existingNode && existingNode.video;
+      
+      if (!hasVideoFile && !hasExistingVideo) {
+        throw new BadRequestException(`Node ${node.id} requires a video file. Please upload a video for this step.`);
       }
       
       // Materials are optional, so we don't validate them as strictly
@@ -203,7 +260,28 @@ export class LearningService {
     });
   }
 
-  remove(id: string) {
-    return this.prismaService.learning.delete({ where: { id }, include: { nodes: true, edges: true } });
+  async remove(id: string) {
+    return await this.prismaService.$transaction(async (prisma) => {
+      // 1. Delete all edges associated with this learning
+      await prisma.edge.deleteMany({
+        where: { learningId: id }
+      });
+
+      // 2. Delete all nodes associated with this learning
+      // (This will also clean up any file references)
+      await prisma.node.deleteMany({
+        where: { learningId: id }
+      });
+
+      // 3. Delete the learning record itself
+      const deletedLearning = await prisma.learning.delete({
+        where: { id }
+      });
+
+      return {
+        message: 'Learning course and all associated data deleted successfully',
+        deletedLearning
+      };
+    });
   }
 }
