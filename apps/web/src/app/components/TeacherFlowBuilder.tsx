@@ -25,6 +25,53 @@ import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 
+// IndexedDB helper functions (same as in VideoEditor)
+const getVideoFileFromIndexedDB = async (id: string): Promise<File | null> => {
+  try {
+    const request = indexedDB.open('VideoEditorDB', 1);
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+    
+    const transaction = db.transaction(['videos'], 'readonly');
+    const store = transaction.objectStore('videos');
+    
+    return new Promise((resolve, reject) => {
+      const getRequest = store.get(id);
+      getRequest.onerror = () => reject(getRequest.error);
+      getRequest.onsuccess = () => {
+        const result = getRequest.result;
+        resolve(result ? result.file : null);
+      };
+    });
+  } catch (error) {
+    console.error('Error getting video from IndexedDB:', error);
+    return null;
+  }
+};
+
+const clearVideoFileFromIndexedDB = async (id: string): Promise<void> => {
+  try {
+    const request = indexedDB.open('VideoEditorDB', 1);
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+    
+    const transaction = db.transaction(['videos'], 'readwrite');
+    const store = transaction.objectStore('videos');
+    
+    return new Promise((resolve, reject) => {
+      const deleteRequest = store.delete(id);
+      deleteRequest.onerror = () => reject(deleteRequest.error);
+      deleteRequest.onsuccess = () => resolve();
+    });
+  } catch (error) {
+    console.error('Error clearing video from IndexedDB:', error);
+  }
+};
+
 export type AIModelType = 'vision-language' | 'object-detection' | 'motion-matching';
 
 export type UploadedFile = {
@@ -35,6 +82,11 @@ export type UploadedFile = {
   url: string;
   uploadedAt: Date;
   file?: File; // Keep reference to original File object for uploading
+  segmentData?: {
+    startTime: number;
+    endTime: number;
+    color: string;
+  };
 };
 
 export type FlowNodeData = {
@@ -170,14 +222,39 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
             isEndNode: node.type === 'end',
             files: [
               // Add video file if exists (not for Start/End nodes)
-              ...((node.video && node.type !== 'start' && node.type !== 'end') ? [{
-                id: `video-${node.id}`,
-                name: `${node.title}.mp4`,
-                size: 0,
-                type: 'video/mp4',
-                url: node.video,
-                uploadedAt: new Date(node.createdAt),
-              }] : []),
+              ...((node.video && node.type !== 'start' && node.type !== 'end') ? (() => {
+                try {
+                  // Try to parse as JSON (for video segments)
+                  const videoData = JSON.parse(node.video);
+                  if (videoData.isSegment && videoData.url) {
+                    return [{
+                      id: `video-${node.id}`,
+                      name: `${node.title}.mp4`,
+                      size: 0,
+                      type: 'video/mp4',
+                      url: videoData.url,
+                      uploadedAt: new Date(node.createdAt),
+                      segmentData: {
+                        startTime: videoData.startTime,
+                        endTime: videoData.endTime,
+                        color: '#3b82f6' // Default color for loaded segments
+                      }
+                    }];
+                  }
+                } catch (e) {
+                  // Not JSON, treat as regular video URL
+                }
+                
+                // Regular video file
+                return [{
+                  id: `video-${node.id}`,
+                  name: `${node.title}.mp4`,
+                  size: 0,
+                  type: 'video/mp4',
+                  url: node.video,
+                  uploadedAt: new Date(node.createdAt),
+                }];
+              })() : []),
               // Add materials if exists (not for Start/End nodes)
               ...((node.materials && node.type !== 'start' && node.type !== 'end') ? JSON.parse(node.materials).map((material: any) => ({
                 id: material.id,
@@ -227,23 +304,45 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
 
   // Load video segments from localStorage and convert to nodes (only if no existing graph)
   useEffect(() => {
-    const loadVideoSegments = () => {
+    const loadVideoSegments = async () => {
       try {
         const storedData = localStorage.getItem('videoSegments');
         const pendingLearningId = localStorage.getItem('pendingLearningId');
         
         if (storedData && pendingLearningId === learningId && (!graphData || !graphData.hasGraph)) {
-          const { segments, videoFile, timestamp } = JSON.parse(storedData);
+          const { segments, originalVideoFile, timestamp, hasVideoFile } = JSON.parse(storedData);
+          
+          console.log('Loading video segments from localStorage:', { segments, originalVideoFile, timestamp, hasVideoFile });
           
           // Check if data is fresh (within 5 minutes)
           const now = Date.now();
           const fiveMinutes = 5 * 60 * 1000;
           if (now - timestamp > fiveMinutes) {
+            console.log('Video segments expired, removing from localStorage');
             localStorage.removeItem('videoSegments');
+            // Also clean up IndexedDB
+            if (hasVideoFile) {
+              await clearVideoFileFromIndexedDB('pendingVideo');
+            }
             return;
           }
 
-          // Convert segments to nodes
+          // Get the original video file from IndexedDB
+          let recreatedVideoFile: File | null = null;
+          if (hasVideoFile) {
+            try {
+              recreatedVideoFile = await getVideoFileFromIndexedDB('pendingVideo');
+              if (recreatedVideoFile) {
+                console.log('✅ Retrieved original video file from IndexedDB');
+              } else {
+                console.warn('⚠️ Video file not found in IndexedDB, segments may not work properly');
+              }
+            } catch (error) {
+              console.error('Failed to retrieve video file from IndexedDB:', error);
+            }
+          }
+
+          // Convert segments to nodes with individual file objects
           const newNodes = segments.map((segment: {
             id: string;
             title: string;
@@ -251,6 +350,9 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
             startTime: number;
             endTime: number;
             color: string;
+            fileName: string;
+            fileSize: number;
+            fileType: string;
           }, index: number) => {
             const nodeId = `video-segment-${segment.id}`;
             
@@ -282,19 +384,36 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
                 threshold: 0.8,
                 isStartNode: false,
                 isEndNode: false,
-                files: videoFile ? [{
+                files: recreatedVideoFile ? (() => {
+                  // Create a new File object for this specific segment
+                  const segmentFile = new File([recreatedVideoFile], segment.fileName, {
+                    type: segment.fileType,
+                    lastModified: Date.now()
+                  });
+                  
+                  // Add segment metadata to the file
+                  (segmentFile as any).segmentData = {
+                    startTime: segment.startTime,
+                    endTime: segment.endTime,
+                    color: segment.color,
+                    originalFileName: recreatedVideoFile.name
+                  };
+                  
+                  return [{
                   id: `video-${segment.id}`,
-                  name: videoFile.name,
-                  size: videoFile.size,
-                  type: videoFile.type,
-                  url: videoFile.url,
+                    name: segment.fileName,
+                    size: segment.fileSize,
+                    type: segment.fileType,
+                    url: URL.createObjectURL(segmentFile),
                   uploadedAt: new Date(),
+                    file: segmentFile, // Store the actual File object
                   segmentData: {
                     startTime: segment.startTime,
                     endTime: segment.endTime,
                     color: segment.color
                   }
-                }] : [],
+                  }];
+                })() : [],
               },
               type: "teacherFlowNode",
             };
@@ -364,14 +483,23 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
             return updatedEdges;
           });
 
-          // Clean up localStorage
+          // Clean up localStorage and IndexedDB
           localStorage.removeItem('videoSegments');
           localStorage.removeItem('pendingLearningId');
+          if (hasVideoFile) {
+            await clearVideoFileFromIndexedDB('pendingVideo');
+          }
         }
       } catch (error) {
         console.error('Error loading video segments:', error);
         localStorage.removeItem('videoSegments');
         localStorage.removeItem('pendingLearningId');
+        // Clean up IndexedDB as well
+        try {
+          await clearVideoFileFromIndexedDB('pendingVideo');
+        } catch (cleanupError) {
+          console.error('Error cleaning up IndexedDB:', cleanupError);
+        }
       }
     };
 
@@ -652,6 +780,16 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
           if (materialsFiles.length > 0) {
             nodeData.materialsFieldName = `${node.id}_materials`;
           }
+          
+          // Add video segment data if this node has a video segment
+          if (videoFile && videoFile.segmentData) {
+            nodeData.videoStartTime = videoFile.segmentData.startTime;
+            nodeData.videoEndTime = videoFile.segmentData.endTime;
+            // Add original filename if available
+            if ((videoFile.file as any)?.segmentData?.originalFileName) {
+              nodeData.originalFileName = (videoFile.file as any).segmentData.originalFileName;
+            }
+          }
         }
 
         nodeDataToSave.push(nodeData);
@@ -700,9 +838,9 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
       // Prepare the complete graph data
       const graphData = {
         learningId: learningId,
-        nodes: nodeDataToSave,
-        edges: edgeDataToSave
-      };
+      nodes: nodeDataToSave,
+      edges: edgeDataToSave
+    };
 
       // Add JSON data to FormData
       formData.append('saveLearningGraphDto', JSON.stringify(graphData));
@@ -713,7 +851,13 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
       // Validate step nodes have required video files (either uploaded now or already exist)
       const stepNodes = nodes.filter(node => !node.data.isStartNode && !node.data.isEndNode);
       const missingVideoNodes = stepNodes.filter(node => {
-        const hasVideoFile = node.data.files.some(file => file.type.includes('video'));
+        const hasVideoFile = node.data.files.some(file => {
+          return file.type.includes('video') && (
+            file.file || // Has File object
+            file.url.startsWith('blob:') || // Has blob URL (from video editor)
+            (!file.url.startsWith('blob:') && !file.file) // Has server URL (existing file)
+          );
+        });
         return !hasVideoFile;
       });
       
@@ -864,7 +1008,7 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span>{saveError}</span>
-                </div>
+          </div>
                 <button
                   onClick={() => setSaveError(null)}
                   className="absolute top-1 right-1 text-white hover:text-gray-200"

@@ -83,19 +83,19 @@ model learning {
 }
 
 model node {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  video       String?
-  materials   String?
-  positionX   Float
-  positionY   Float
-  learningId  String
-  algorithm   String?
-  type        String
-  threshold   Float?
-  createdAt  DateTime
-  updatedAt  DateTime
+  id             String   @id @default(uuid())
+  title          String
+  description    String
+  video          String?
+  materials      String?
+  positionX      Float
+  positionY      Float
+  learningId     String
+  algorithm      String?
+  type           String
+  threshold      Float?
+  createdAt      DateTime
+  updatedAt      DateTime
 
   learning    learning @relation(fields: [learningId], references: [id])
   fromEdges   edge[]   @relation("FromNode")

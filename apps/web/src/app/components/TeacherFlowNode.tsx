@@ -5,6 +5,7 @@ import { Handle, Position, NodeProps, Node } from "@xyflow/react";
 // import { motion } from "motion/react"; // Removed to eliminate drag delays
 import { FaPlay, FaStop, FaEye, FaRobot, FaRunning, FaFile, FaFilePdf, FaFileImage, FaFileVideo } from "react-icons/fa";
 import { FlowNodeData, AIModelType, UploadedFile } from "./TeacherFlowBuilder";
+import VideoPlayer from "./VideoPlayer";
 
 const getAIModelIcon = (model: AIModelType | null) => {
   switch (model) {
@@ -113,34 +114,64 @@ export default function TeacherFlowNode({ data, selected }: NodeProps<Node<FlowN
           </div>
         )}
 
-        {/* Files Section - Only for regular nodes */}
-        {data.files && data.files.length > 0 && !isStart && !isEnd && (
+        {/* Video Section - Only for regular nodes */}
+        {data.files && data.files.some(file => file.type.includes('video')) && !isStart && !isEnd && (
+          <div className="border-b border-gray-200">
+            {data.files.filter(file => file.type.includes('video')).slice(0, 1).map((videoFile) => (
+                <div key={videoFile.id} className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">Video Content</span>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-red-500 rounded-full" title="Video file"></div>
+                      {videoFile.segmentData && (
+                        <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                          Segment
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                
+                {/* Video Player */}
+                <div className="mb-2">
+                  <VideoPlayer
+                    src={videoFile.url}
+                    startTime={videoFile.segmentData?.startTime}
+                    endTime={videoFile.segmentData?.endTime}
+                    className="h-32 w-full"
+                    showControls={true}
+                  />
+                </div>
+                
+                {/* Video Info */}
+                <div className="text-xs text-gray-500">
+                  <div className="truncate">{videoFile.name}</div>
+                  <div className="flex justify-between items-center mt-1">
+                    <span>{formatFileSize(videoFile.size)}</span>
+                    {videoFile.segmentData && (
+                      <span className="text-purple-600">
+                        {Math.floor(videoFile.segmentData.startTime / 60)}:{String(Math.floor(videoFile.segmentData.startTime % 60)).padStart(2, '0')} - {Math.floor(videoFile.segmentData.endTime / 60)}:{String(Math.floor(videoFile.segmentData.endTime % 60)).padStart(2, '0')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Materials Section - Only for regular nodes */}
+        {data.files && data.files.some(file => !file.type.includes('video')) && !isStart && !isEnd && (
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Learning Materials</span>
               <div className="flex items-center gap-1">
-                {data.files.some(file => file.type.includes('video')) && (
-                  <div className="w-2 h-2 bg-red-500 rounded-full" title="Has video files"></div>
-                )}
-                {data.files.some(file => !file.type.includes('video')) && (
-                  <div className="w-2 h-2 bg-blue-500 rounded-full" title="Has material files"></div>
-                )}
-                <span className="text-xs text-gray-500 ml-1">{data.files.length} file(s)</span>
+                <div className="w-2 h-2 bg-blue-500 rounded-full" title="Has material files"></div>
+                <span className="text-xs text-gray-500 ml-1">{data.files.filter(file => !file.type.includes('video')).length} file(s)</span>
               </div>
             </div>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
-              {/* Show video files first */}
-              {data.files.filter(file => file.type.includes('video')).slice(0, 2).map((file) => (
-                <div key={file.id} className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
-                  <FaFileVideo className="w-3 h-3 text-red-500" />
-                  <div className="flex-1 min-w-0">
-                    <div className="truncate text-gray-800">{file.name}</div>
-                    <div className="text-gray-500">{formatFileSize(file.size)}</div>
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-2 max-h-24 overflow-y-auto">
               {/* Show material files */}
-              {data.files.filter(file => !file.type.includes('video')).slice(0, 2).map((file) => {
+              {data.files.filter(file => !file.type.includes('video')).slice(0, 3).map((file) => {
                 const FileIcon = getFileIcon(file.type);
                 return (
                   <div key={file.id} className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
@@ -152,9 +183,9 @@ export default function TeacherFlowNode({ data, selected }: NodeProps<Node<FlowN
                   </div>
                 );
               })}
-              {data.files.length > 4 && (
+              {data.files.filter(file => !file.type.includes('video')).length > 3 && (
                 <div className="text-xs text-gray-500 text-center">
-                  +{data.files.length - 4} more files
+                  +{data.files.filter(file => !file.type.includes('video')).length - 3} more files
                 </div>
               )}
             </div>

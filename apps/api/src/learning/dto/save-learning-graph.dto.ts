@@ -36,6 +36,19 @@ export class NodeDto {
     @IsOptional()
     @IsString()
     materialsFieldName?: string; // Not used for Start/End nodes
+    
+    // Video segment data for nodes created from video editor
+    @IsOptional()
+    @IsNumber()
+    videoStartTime?: number; // Start time in seconds for video segments
+    
+    @IsOptional()
+    @IsNumber()
+    videoEndTime?: number; // End time in seconds for video segments
+    
+    @IsOptional()
+    @IsString()
+    originalFileName?: string; // Original video file name for segments
 }
 
 export class EdgeDto {

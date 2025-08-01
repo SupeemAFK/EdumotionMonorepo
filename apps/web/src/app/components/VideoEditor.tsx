@@ -6,6 +6,71 @@ import { IoClose, IoInformationCircle } from "react-icons/io5";
 import { motion, AnimatePresence } from "motion/react";
 import { useRouter } from "next/navigation";
 
+// IndexedDB helper functions for storing large video files
+const openDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('VideoEditorDB', 1);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains('videos')) {
+        db.createObjectStore('videos', { keyPath: 'id' });
+      }
+    };
+  });
+};
+
+const storeVideoFileInIndexedDB = async (file: File, id: string): Promise<void> => {
+  const db = await openDB();
+  const transaction = db.transaction(['videos'], 'readwrite');
+  const store = transaction.objectStore('videos');
+  
+  return new Promise((resolve, reject) => {
+    const request = store.put({ id, file, timestamp: Date.now() });
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+};
+
+const getVideoFileFromIndexedDB = async (id: string): Promise<File | null> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction(['videos'], 'readonly');
+    const store = transaction.objectStore('videos');
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get(id);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const result = request.result;
+        resolve(result ? result.file : null);
+      };
+    });
+  } catch (error) {
+    console.error('Error getting video from IndexedDB:', error);
+    return null;
+  }
+};
+
+const clearVideoFileFromIndexedDB = async (id: string): Promise<void> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction(['videos'], 'readwrite');
+    const store = transaction.objectStore('videos');
+    
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+  } catch (error) {
+    console.error('Error clearing video from IndexedDB:', error);
+  }
+};
+
 interface VideoSegment {
   id: string;
   startTime: number;
@@ -33,6 +98,7 @@ const VideoEditor: React.FC<VideoEditorProps> = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [showSegmentModal, setShowSegmentModal] = useState(false);
   const [editingSegment, setEditingSegment] = useState<VideoSegment | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -208,31 +274,99 @@ const VideoEditor: React.FC<VideoEditorProps> = () => {
   }, []);
 
   // Confirm segments and navigate to teacher page
-  const handleConfirmSegments = useCallback(() => {
+  const handleConfirmSegments = useCallback(async () => {
     if (segments.length === 0) {
       return;
     }
     
-    // Store segments in localStorage for the teacher page to pick up
-    localStorage.setItem('videoSegments', JSON.stringify({
-      segments,
-      videoFile: videoFile ? {
-        name: videoFile.name,
-        size: videoFile.size,
-        type: videoFile.type,
-        url: videoUrl
-      } : null,
-      timestamp: Date.now()
-    }));
+    setIsConfirming(true);
     
-    // Get the pending learning ID and navigate to the graph route
-    const pendingLearningId = localStorage.getItem('pendingLearningId');
-    if (pendingLearningId) {
-      // Navigate to graph route which will then redirect to teacher page with video segments loaded
-      router.push(`/teacher/${pendingLearningId}/graph`);
-    } else {
-      // Fallback to general teacher page if no pending learning ID
-      router.push('/teacher');
+    try {
+      console.log('Creating individual segment files...');
+      
+      // Create individual file objects for each segment
+      const segmentFiles = [];
+      
+      if (videoFile) {
+        for (const segment of segments) {
+          console.log(`Creating file for segment: ${segment.title}`);
+          
+          // Create a new File object for this segment
+          // We'll use the original video file but with segment metadata
+          const segmentFileName = `${segment.title.replace(/[^a-zA-Z0-9]/g, '_')}_segment.mp4`;
+          
+          // Create a new File object that represents this segment
+          const segmentFile = new File([videoFile], segmentFileName, {
+            type: videoFile.type,
+            lastModified: Date.now()
+          });
+          
+          // Add segment metadata to the file object
+          (segmentFile as any).segmentData = {
+            startTime: segment.startTime,
+            endTime: segment.endTime,
+            color: segment.color,
+            originalFileName: videoFile.name,
+            originalFileSize: videoFile.size
+          };
+          
+          segmentFiles.push({
+            id: segment.id,
+            title: segment.title,
+            description: segment.description,
+            startTime: segment.startTime,
+            endTime: segment.endTime,
+            color: segment.color,
+            file: segmentFile
+          });
+        }
+      }
+    
+      // Store segment metadata in localStorage (without the large video file)
+      // We'll use a different approach to handle the video file
+      const segmentData = {
+        segments: segmentFiles.map(sf => ({
+          id: sf.id,
+          title: sf.title,
+          description: sf.description,
+          startTime: sf.startTime,
+          endTime: sf.endTime,
+          color: sf.color,
+          fileName: sf.file.name,
+          fileSize: sf.file.size,
+          fileType: sf.file.type
+        })),
+        originalVideoFile: videoFile ? {
+          name: videoFile.name,
+          size: videoFile.size,
+          type: videoFile.type,
+          // Don't store the actual file data to avoid quota issues
+        } : null,
+        timestamp: Date.now(),
+        hasVideoFile: !!videoFile // Flag to indicate if we had a video file
+      };
+      
+      // Store the video file in IndexedDB for larger storage capacity
+      if (videoFile) {
+        await storeVideoFileInIndexedDB(videoFile, 'pendingVideo');
+      }
+      
+      localStorage.setItem('videoSegments', JSON.stringify(segmentData));
+      console.log(`✅ Created ${segmentFiles.length} segment files`);
+      
+      // Get the pending learning ID and navigate to the graph route
+      const pendingLearningId = localStorage.getItem('pendingLearningId');
+      if (pendingLearningId) {
+        // Navigate to graph route which will then redirect to teacher page with video segments loaded
+        router.push(`/teacher/${pendingLearningId}/graph`);
+      } else {
+        // Fallback to general teacher page if no pending learning ID
+        router.push('/teacher');
+      }
+    } catch (error) {
+      console.error('Error confirming segments:', error);
+    } finally {
+      setIsConfirming(false);
     }
   }, [segments, videoFile, videoUrl, router]);
 
@@ -781,11 +915,16 @@ const VideoEditor: React.FC<VideoEditorProps> = () => {
               <div className="flex gap-3 mt-6">
                 <motion.button
                   onClick={handleConfirmSegments}
-                  className="flex-1 p-3 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition-colors duration-200 shadow-lg"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  disabled={isConfirming}
+                  className={`flex-1 p-3 rounded-lg font-medium transition-colors duration-200 shadow-lg ${
+                    isConfirming 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                  whileHover={!isConfirming ? { scale: 1.02 } : {}}
+                  whileTap={!isConfirming ? { scale: 0.98 } : {}}
                 >
-                  Create Nodes
+                  {isConfirming ? 'Processing Video...' : 'Create Nodes'}
                 </motion.button>
                 <motion.button
                   onClick={() => setShowConfirmModal(false)}

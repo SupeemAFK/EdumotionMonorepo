@@ -90,8 +90,23 @@ export class LearningService {
         const uploadedFileUrls = nodeFileUrls.get(actualNodeId) || { videoUrl: null, materialsUrl: null };
 
         // Determine final file URLs (use new uploads if available, otherwise keep existing)
-        const finalVideoUrl = (nodeDto.type === 'start' || nodeDto.type === 'end') ? null :
+        let finalVideoUrl = (nodeDto.type === 'start' || nodeDto.type === 'end') ? null :
           (uploadedFileUrls.videoUrl || existingNode?.video || null);
+        
+        // If this is a video segment, store the segment data with the video URL
+        if (finalVideoUrl && (nodeDto.videoStartTime !== undefined || nodeDto.videoEndTime !== undefined)) {
+          const videoData = {
+            url: finalVideoUrl,
+            startTime: nodeDto.videoStartTime,
+            endTime: nodeDto.videoEndTime,
+            isSegment: true,
+            // Additional metadata for segments
+            originalFileName: nodeDto.originalFileName || 'video.mp4',
+            segmentTitle: nodeDto.title || 'Video Segment'
+          };
+          finalVideoUrl = JSON.stringify(videoData);
+        }
+        
         const finalMaterialsUrl = (nodeDto.type === 'start' || nodeDto.type === 'end') ? null :
           (uploadedFileUrls.materialsUrl || existingNode?.materials || null);
 
