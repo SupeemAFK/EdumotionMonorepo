@@ -54,7 +54,7 @@ export default function MyLearningPage() {
     },
     onSuccess: () => {
       // Invalidate and refetch the learning list
-      queryClient.invalidateQueries({ queryKey: ['learning'] });
+      queryClient.invalidateQueries({ queryKey: ['my-learning'] });
       toast.success('Learning course deleted successfully!');
     },
     onError: (error: any) => {
