@@ -1,6 +1,55 @@
 'use client'
 
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
+
+// Type declarations for Web Speech API
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition;
+    webkitSpeechRecognition: typeof SpeechRecognition;
+  }
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onstart: () => void;
+  onend: () => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+}
+
+interface SpeechRecognitionEvent {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+}
+
+declare var SpeechRecognition: {
+  prototype: SpeechRecognition;
+  new(): SpeechRecognition;
+};
 import { useQuery, useMutation } from '@tanstack/react-query';
 import Navbar from "../../components/Navbar";
 import SkillLearningFlow from "../../components/SkillLearningFlow";
@@ -14,6 +63,11 @@ export default function SkillLearningPage() {
   
   // Use the skillId from params (this is the learningId)
   const learningId = params.skillId;
+
+  // Speech recognition state
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // Fetch learning data
   const { data: learningData, isLoading: isLoadingLearning } = useQuery({
@@ -80,6 +134,101 @@ export default function SkillLearningPage() {
     }
   }, [session?.user?.id, learningId, learningData]);
 
+  // Initialize speech recognition
+  useEffect(() => {
+    // Check if speech recognition is supported
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (SpeechRecognition) {
+      setSpeechSupported(true);
+      
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true; // Keep listening continuously
+      recognition.interimResults = true; // Get interim results
+      recognition.lang = 'th-TH'; // Set language to Thai
+      
+      // Handle speech recognition results
+      recognition.onresult = (event) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+        
+        // Log final speech results
+        if (finalTranscript) {
+          console.log('🎤 Speech Recognition (Final):', finalTranscript.trim());
+        }
+        
+        // Log interim results (optional - shows real-time transcription)
+        if (interimTranscript) {
+          console.log('🎤 Speech Recognition (Interim):', interimTranscript.trim());
+        }
+      };
+      
+      // Handle recognition start
+      recognition.onstart = () => {
+        console.log('🎤 Speech recognition started');
+        setIsListening(true);
+      };
+      
+      // Handle recognition end
+      recognition.onend = () => {
+        console.log('🎤 Speech recognition ended');
+        setIsListening(false);
+        
+        // Restart recognition automatically to keep listening continuously
+        if (recognitionRef.current) {
+          setTimeout(() => {
+            try {
+              recognitionRef.current?.start();
+            } catch (error) {
+              console.log('🎤 Recognition restart error (normal if already running):', error);
+            }
+          }, 100);
+        }
+      };
+      
+      // Handle recognition errors
+      recognition.onerror = (event) => {
+        console.error('🎤 Speech recognition error:', event.error);
+        
+        // Don't restart on certain errors
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          console.error('🎤 Microphone access denied or service not allowed');
+          setIsListening(false);
+        }
+      };
+      
+      recognitionRef.current = recognition;
+      
+      // Start speech recognition automatically
+      try {
+        recognition.start();
+      } catch (error) {
+        console.error('🎤 Failed to start speech recognition:', error);
+      }
+    } else {
+      console.warn('🎤 Speech recognition not supported in this browser');
+      setSpeechSupported(false);
+    }
+    
+    // Cleanup function
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    };
+  }, []); // Empty dependency array to run once on mount
+
   if (isLoadingLearning) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
@@ -120,6 +269,19 @@ export default function SkillLearningPage() {
       </div>
       
       <Navbar />
+      
+      {/* Speech Recognition Indicator */}
+      {speechSupported && (
+        <div className="fixed top-20 right-4 z-50 bg-white rounded-full shadow-lg p-3 border">
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-red-500 animate-pulse' : 'bg-gray-400'}`}></div>
+            <span className="text-sm font-medium text-gray-700">
+              {isListening ? 'Listening...' : 'Mic Ready'}
+            </span>
+          </div>
+        </div>
+      )}
+      
       <div className="relative z-10 pt-16 h-screen overflow-hidden">
         <SkillLearningFlow skillId={learningId} learningData={learningData} />
       </div>
