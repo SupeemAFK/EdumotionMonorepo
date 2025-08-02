@@ -18,10 +18,15 @@ import { FaPlay, FaPause, FaCheck, FaLock, FaArrowLeft, FaBookOpen, FaClock, FaU
 import { useRouter } from "next/navigation";
 import SkillLearningNode from "./SkillLearningNode";
 import LearningWebcam from "./LearningWebcam";
+import { api } from '@/lib/api';
 
 interface SkillLearningFlowProps {
   skillId: string;
   learningData?: any;
+  userId?: string;
+  learningProgress?: any;
+  isLoadingProgress?: boolean;
+  refetchProgress?: () => void;
 }
 
 interface SkillNodeData extends Record<string, unknown> {
@@ -543,8 +548,10 @@ const getSkillData = (skillId: string) => {
 
 const nodeTypes = { skillLearningNode: SkillLearningNode };
 
-function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowProps) {
+function SkillLearningFlowContent({ skillId, learningData, userId, learningProgress, isLoadingProgress, refetchProgress }: SkillLearningFlowProps) {
   const router = useRouter();
+  const [isChecking, setIsChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<'success' | 'error' | null>(null);
   
   // Convert API data to the format expected by the component
   const convertApiDataToSkillData = (apiData: any) => {
@@ -564,8 +571,21 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
     const endNode = sortedNodes.find((node: any) => node.type === 'end');
     const learningNodes = sortedNodes.filter((node: any) => node.type !== 'start' && node.type !== 'end');
 
-    // Find the first learning node (should be current)
-    const firstLearningNode = learningNodes[0];
+    // Determine current node based on learning progress
+    let currentNodeId = learningNodes[0]?.id; // Default to first learning node
+    
+    if (learningProgress?.currentNode) {
+      currentNodeId = learningProgress.currentNode;
+      console.log('📍 Using learning progress current node:', {
+        currentNodeId: currentNodeId,
+        progressUpdated: learningProgress.updatedAt,
+        progressCreated: learningProgress.createdAt
+      });
+    } else if (isLoadingProgress) {
+      console.log('⏳ Still loading progress, using default first node temporarily');
+    } else {
+      console.log('🆕 No learning progress found, using first learning node:', currentNodeId);
+    }
     
     // Convert nodes to the expected format
     const convertedNodes = sortedNodes.map((node: any, index: number) => {
@@ -574,13 +594,29 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
       if (node.type === 'start' || node.type === 'end') {
         // Start and end nodes are not interactive
         status = 'locked';
-      } else if (node.id === firstLearningNode?.id) {
-        // First learning node is current
+        console.log(`🔒 ${node.type.toUpperCase()} node (${node.title}): status = locked`);
+      } else if (node.id === currentNodeId) {
+        // Current active node based on API progress
         status = 'current';
+        console.log(`🎯 CURRENT node (${node.title}): status = current (from API currentNode: ${currentNodeId})`);
       } else {
-        // For now, make other learning nodes available (you can implement more complex logic later)
+        // Determine status based on position relative to current node
         const nodeIndex = learningNodes.findIndex((n: any) => n.id === node.id);
-        status = nodeIndex <= 1 ? 'available' : 'locked';
+        const currentIndex = learningNodes.findIndex((n: any) => n.id === currentNodeId);
+        
+        if (nodeIndex < currentIndex) {
+          // Nodes before current are completed (done)
+          status = 'completed';
+          console.log(`✅ PREVIOUS node (${node.title}): status = completed (position ${nodeIndex} < current ${currentIndex})`);
+        } else if (nodeIndex === currentIndex + 1) {
+          // Next node after current is available (ready)
+          status = 'available';
+          console.log(`🟡 NEXT node (${node.title}): status = available (position ${nodeIndex} = current ${currentIndex} + 1)`);
+        } else {
+          // All other future nodes are locked
+          status = 'locked';
+          console.log(`🔒 FUTURE node (${node.title}): status = locked (position ${nodeIndex} > current ${currentIndex} + 1)`);
+        }
       }
 
       // Handle different video URL formats
@@ -645,6 +681,23 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
       animated: true,
     }));
 
+    // Log summary of node statuses
+    const statusSummary = convertedNodes.reduce((acc: any, node) => {
+      const status = node.data.status;
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+    
+    console.log('📊 Node Status Summary:', {
+      currentNodeFromAPI: currentNodeId,
+      totalNodes: convertedNodes.length,
+      statusBreakdown: statusSummary,
+      completedNodes: convertedNodes.filter(n => n.data.status === 'completed').map(n => n.data.label),
+      currentNode: convertedNodes.find(n => n.data.status === 'current')?.data.label,
+      availableNodes: convertedNodes.filter(n => n.data.status === 'available').map(n => n.data.label),
+      lockedNodes: convertedNodes.filter(n => n.data.status === 'locked').map(n => n.data.label)
+    });
+
     return {
       title: learning.title,
       description: learning.description,
@@ -691,10 +744,15 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
   const handleCheckCorrect = useCallback(async (nodeId: string) => {
     console.log('🔍 Check if correct clicked for node:', nodeId);
     
+    // Set loading state
+    setIsChecking(true);
+    setCheckResult(null);
+    
     // Find the current node
     const node = nodes.find(n => n.id === nodeId) as Node<SkillNodeData> | undefined;
     if (!node) {
       console.error('Node not found:', nodeId);
+      setIsChecking(false);
       return;
     }
 
@@ -702,16 +760,18 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
     const videoUrl = node.data.videoData?.url || node.data.video;
     if (!videoUrl) {
       console.error('No video found for node:', nodeId);
+      setIsChecking(false);
       return;
     }
 
     try {
       // Send video URL and threshold to our proxy API
-      // The proxy will handle downloading the video and calling the VLM API
       const requestBody = {
         video_url: videoUrl,
         threshold: parseFloat(node.data.threshold?.toString() || '0.5')
       };
+
+      console.log('🚀 Sending VLM inference request:', requestBody);
 
       // Call our proxy API route
       const response = await fetch('/api/vlm-inference', {
@@ -727,21 +787,224 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
       }
 
       const result = await response.json();
-      console.log('VLM Inference Response:', result);
+      console.log('🎯 VLM Inference Response:', result);
+
+      // Check if the answer is correct
+      const isCorrect = result.external_api_response?.is_above_threshold === "YES";
+      
+      if (isCorrect) {
+        console.log('✅ Answer is correct! Moving to next node...');
+        setCheckResult('success');
+        
+        // Play success sound
+        playSuccessSound();
+        
+        // Find the next node in the learning sequence
+        const currentNodeIndex = nodes.findIndex(n => n.id === nodeId);
+        const nextNode = nodes[currentNodeIndex + 1];
+        
+        if (nextNode && nextNode.data.type !== 'end') {
+          // Update learning progress via backend API
+          try {
+            const progressResponse = await api.post('/learnprogress/create-or-update', {
+              userId: userId || skillId, // Use actual user ID if available
+              learningId: skillId,
+              currentNode: nextNode.id,
+            });
+            
+            console.log('📈 Progress updated:', progressResponse.data);
+            
+                        // Update local state to reflect the change
+    setNodes((nds) =>
+              nds.map((n) => {
+                if (n.id === nodeId) {
+                  return { ...n, data: { ...n.data, status: 'completed' as const } };
+                } else if (n.id === nextNode.id) {
+                  return { ...n, data: { ...n.data, status: 'current' as const } };
+                }
+                return n;
+              })
+            );
+            
+            // Refetch progress to sync with backend
+            if (refetchProgress) {
+              console.log('🔄 Refetching progress from backend...');
+              refetchProgress();
+            }
+            
+          } catch (progressError) {
+            console.error('❌ Failed to update progress:', progressError);
+          }
+        } else {
+          console.log('🎉 Learning completed! No more nodes.');
+        }
+        
+        // Close modal after success
+        setTimeout(() => {
+    setSelectedNode(null);
+          setCheckResult(null);
+        }, 2000);
+        
+      } else {
+        console.log('❌ Answer is incorrect.');
+        console.log('💡 Suggestions:', result.external_api_response?.suggestions);
+        setCheckResult('error');
+        
+        // Auto-hide error state after 3 seconds
+        setTimeout(() => {
+          setCheckResult(null);
+        }, 3000);
+      }
       
     } catch (error) {
-      console.error('Error calling VLM inference API:', error);
+      console.error('💥 Error calling VLM inference API:', error);
+      setCheckResult('error');
+      
+      // Auto-hide error state after 3 seconds
+      setTimeout(() => {
+        setCheckResult(null);
+      }, 3000);
+    } finally {
+      setIsChecking(false);
     }
-  }, [nodes]);
+  }, [nodes, skillId, setNodes, setSelectedNode]);
+
+  // Function to play success sound
+  const playSuccessSound = () => {
+    try {
+      // Create a simple success sound using Web Audio API
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Create a short success melody
+      const playTone = (frequency: number, startTime: number, duration: number) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = frequency;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+        
+        oscillator.start(startTime);
+        oscillator.stop(startTime + duration);
+      };
+      
+      const now = audioContext.currentTime;
+      playTone(523.25, now, 0.2); // C5
+      playTone(659.25, now + 0.15, 0.2); // E5
+      playTone(783.99, now + 0.3, 0.3); // G5
+      
+    } catch (e) {
+      console.log('Audio not available:', e);
+      // Fallback: try to use a simple beep sound
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCCWN1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+Dy');
+        audio.volume = 0.3;
+        audio.play().catch(e => console.log('Could not play fallback sound:', e));
+      } catch (fallbackError) {
+        console.log('Fallback audio not available:', fallbackError);
+      }
+    }
+  };
+
+  // Test function to simulate a successful response
+  const handleTestSuccess = useCallback(async (nodeId: string) => {
+    console.log('🧪 TEST: Simulating successful response for node:', nodeId);
+    
+    setIsChecking(true);
+    setCheckResult(null);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    console.log('✅ TEST: Answer is correct! Moving to next node...');
+    setCheckResult('success');
+    
+    // Play success sound
+    playSuccessSound();
+    
+    // Find the next node in the learning sequence
+    const currentNodeIndex = nodes.findIndex(n => n.id === nodeId);
+    const nextNode = nodes[currentNodeIndex + 1];
+    
+    if (nextNode && nextNode.data.type !== 'end') {
+      // Update learning progress via backend API
+      try {
+        console.log('🚀 TEST: Calling API to update progress...', {
+          endpoint: '/learnprogress/create-or-update',
+          userId: userId || skillId,
+          learningId: skillId,
+          currentNode: nextNode.id,
+          nextNodeTitle: nextNode.data.label
+        });
+        
+        const progressResponse = await api.post('/learnprogress/create-or-update', {
+          userId: userId || skillId,
+          learningId: skillId,
+          currentNode: nextNode.id,
+        });
+        
+        console.log('✅ TEST: API call successful! Progress updated:', {
+          response: progressResponse.data,
+          status: progressResponse.status,
+          statusText: progressResponse.statusText
+        });
+        
+        // Update local state to reflect the change
+        setNodes((nds) =>
+          nds.map((n) => {
+            if (n.id === nodeId) {
+              console.log('📝 TEST: Marking node as completed:', n.data.label);
+              return { ...n, data: { ...n.data, status: 'completed' as const } };
+            } else if (n.id === nextNode.id) {
+              console.log('🎯 TEST: Setting next node as current:', n.data.label);
+              return { ...n, data: { ...n.data, status: 'current' as const } };
+            }
+            return n;
+          })
+        );
+        
+        console.log('🔄 TEST: Local state updated successfully!');
+        
+        // Refetch progress to sync with backend
+        if (refetchProgress) {
+          console.log('🔄 TEST: Refetching progress from backend...');
+          refetchProgress();
+        }
+        
+      } catch (progressError) {
+        console.error('❌ TEST: API call failed!', {
+          error: progressError,
+          message: progressError instanceof Error ? progressError.message : 'Unknown error',
+          endpoint: '/learnprogress/create-or-update'
+        });
+      }
+    } else {
+      console.log('🎉 TEST: Learning completed! No more nodes to progress to.');
+    }
+    
+    // Close modal after success
+    setTimeout(() => {
+    setSelectedNode(null);
+      setCheckResult(null);
+    }, 2000);
+    
+    setIsChecking(false);
+  }, [nodes, skillId, userId, setNodes, setSelectedNode, playSuccessSound]);
 
   const handleBack = () => {
     router.push('/');
   };
 
   const currentNode = nodes.find(node => (node.data as SkillNodeData).status === 'current') as Node<SkillNodeData> | undefined;
-  // Remove completion tracking since we don't have completion logic anymore
+  const completedNodes = nodes.filter(node => (node.data as SkillNodeData).status === 'completed');
   const totalLearningNodes = nodes.filter(node => (node.data as SkillNodeData).type !== 'start' && (node.data as SkillNodeData).type !== 'end').length;
-  const progress = 0; // Set to 0 since we're not tracking completion
+  const progress = totalLearningNodes > 0 ? (completedNodes.length / totalLearningNodes) * 100 : 0;
 
   return (
     <div className="w-full h-full flex flex-col bg-transparent">
@@ -775,11 +1038,11 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
           {/* Progress */}
           <div className="flex items-center gap-4">
             <div className="text-sm text-gray-600">
-              Learning: {totalLearningNodes} steps
+              Progress: {completedNodes.length}/{totalLearningNodes} steps
             </div>
             <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
               <motion.div
-                className="h-full bg-blue-500 rounded-full"
+                className="h-full bg-green-500 rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.5 }}
@@ -864,12 +1127,51 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
 
             <motion.button
               onClick={() => handleCheckCorrect(currentNode.id)}
-              className="w-full flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors duration-200 text-white"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              disabled={isChecking}
+              className={`w-full flex items-center justify-center gap-2 p-3 rounded-lg font-medium transition-all duration-200 text-white ${
+                checkResult === 'success' 
+                  ? 'bg-green-600 hover:bg-green-700' 
+                  : checkResult === 'error'
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : isChecking
+                  ? 'bg-gray-600 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+              whileHover={{ scale: isChecking ? 1 : 1.02 }}
+              whileTap={{ scale: isChecking ? 1 : 0.98 }}
             >
+              {isChecking ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Checking...
+                </>
+              ) : checkResult === 'success' ? (
+                <>
               <FaCheck className="text-sm" />
-              Check if Correct
+                  Correct! ✨
+                </>
+              ) : checkResult === 'error' ? (
+                <>
+                  <span className="text-sm">❌</span>
+                  Try Again
+                </>
+              ) : (
+                <>
+                  <FaCheck className="text-sm" />
+                  Check if Correct
+                </>
+              )}
+            </motion.button>
+
+            {/* Test Button for Development */}
+            <motion.button
+              onClick={() => handleTestSuccess(currentNode.id)}
+              disabled={isChecking}
+              className="w-full flex items-center justify-center gap-2 p-2 mt-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 rounded-lg font-medium transition-all duration-200 text-white text-sm"
+              whileHover={{ scale: isChecking ? 1 : 1.02 }}
+              whileTap={{ scale: isChecking ? 1 : 0.98 }}
+            >
+              🧪 Test Success
             </motion.button>
 
             {/* Learning Webcam */}
@@ -916,10 +1218,10 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
 
               <div className="aspect-video bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
                 {selectedNode.data.video ? (
-                  <video
-                    src={selectedNode.data.video}
-                    controls
-                    className="w-full h-full rounded-lg"
+                <video
+                  src={selectedNode.data.video}
+                  controls
+                  className="w-full h-full rounded-lg"
                     onPlay={() => {
                       console.log(`▶️ Video started playing:`, selectedNode.data.video);
                       setIsVideoPlaying(true);
@@ -988,19 +1290,48 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
                 </div>
               </div>
 
+                            <div className="space-y-2">
               <div className="flex gap-4">
-                {/* Only show Check if Correct button for current node */}
-                {selectedNode.data.status === 'current' && (
-                  <motion.button
-                    onClick={() => handleCheckCorrect(selectedNode.id)}
-                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors duration-200 text-white"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <FaCheck className="text-sm" />
-                    Check if Correct
-                  </motion.button>
-                )}
+                  {/* Only show Check if Correct button for current node */}
+                  {selectedNode.data.status === 'current' && (
+                <motion.button
+                      onClick={() => handleCheckCorrect(selectedNode.id)}
+                      disabled={isChecking}
+                      className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 text-white ${
+                        checkResult === 'success' 
+                          ? 'bg-green-600 hover:bg-green-700' 
+                          : checkResult === 'error'
+                          ? 'bg-red-600 hover:bg-red-700'
+                          : isChecking
+                          ? 'bg-gray-600 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
+                      whileHover={{ scale: isChecking ? 1 : 1.02 }}
+                      whileTap={{ scale: isChecking ? 1 : 0.98 }}
+                    >
+                      {isChecking ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Checking...
+                        </>
+                      ) : checkResult === 'success' ? (
+                        <>
+                  <FaCheck className="text-sm" />
+                          Correct! ✨
+                        </>
+                      ) : checkResult === 'error' ? (
+                        <>
+                          <span className="text-sm">❌</span>
+                          Try Again
+                        </>
+                      ) : (
+                        <>
+                          <FaCheck className="text-sm" />
+                          Check if Correct
+                        </>
+                      )}
+                </motion.button>
+                  )}
                 <motion.button
                   onClick={() => setSelectedNode(null)}
                   className="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors duration-200 text-gray-700"
@@ -1009,8 +1340,76 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
                 >
                   Close
                 </motion.button>
+                </div>
+                
+                {/* Test Button for Development - Only show for current node */}
+                {selectedNode.data.status === 'current' && (
+                  <motion.button
+                    onClick={() => handleTestSuccess(selectedNode.id)}
+                    disabled={isChecking}
+                    className="w-full flex items-center justify-center gap-2 p-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 rounded-lg font-medium transition-all duration-200 text-white text-sm"
+                    whileHover={{ scale: isChecking ? 1 : 1.02 }}
+                    whileTap={{ scale: isChecking ? 1 : 0.98 }}
+                  >
+                    🧪 Test Success (Simulate YES)
+                  </motion.button>
+                )}
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Success Animation Overlay */}
+      <AnimatePresence>
+        {checkResult === 'success' && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed inset-0 bg-green-500/20 backdrop-blur-sm flex items-center justify-center z-50 pointer-events-none"
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: [0, 1.2, 1] }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="bg-white rounded-full p-8 shadow-2xl"
+            >
+              <motion.div
+                initial={{ rotate: 0 }}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="text-6xl text-green-500"
+              >
+                ✅
+              </motion.div>
+            </motion.div>
+            
+            {/* Confetti-like particles */}
+            <div className="absolute inset-0 pointer-events-none">
+              {[...Array(20)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ 
+                    opacity: 1, 
+                    scale: 0,
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight
+                  }}
+                  animate={{ 
+                    opacity: 0, 
+                    scale: 1,
+                    y: window.innerHeight + 100
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    delay: Math.random() * 0.5,
+                    ease: "easeOut"
+                  }}
+                  className="absolute w-4 h-4 bg-green-400 rounded-full"
+                />
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1018,10 +1417,17 @@ function SkillLearningFlowContent({ skillId, learningData }: SkillLearningFlowPr
   );
 }
 
-export default function SkillLearningFlow({ skillId, learningData }: SkillLearningFlowProps) {
+export default function SkillLearningFlow({ skillId, learningData, userId, learningProgress, isLoadingProgress, refetchProgress }: SkillLearningFlowProps) {
   return (
     <ReactFlowProvider>
-      <SkillLearningFlowContent skillId={skillId} learningData={learningData} />
+      <SkillLearningFlowContent 
+        skillId={skillId} 
+        learningData={learningData} 
+        userId={userId} 
+        learningProgress={learningProgress}
+        isLoadingProgress={isLoadingProgress}
+        refetchProgress={refetchProgress}
+      />
     </ReactFlowProvider>
   );
 } 

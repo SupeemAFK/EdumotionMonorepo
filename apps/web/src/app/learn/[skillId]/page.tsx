@@ -96,43 +96,115 @@ export default function SkillLearningPage() {
     enabled: !!learningId,
   });
 
-  // Create or update learn progress mutation
+  // Fetch learning progress for the current user and learning
+  const { 
+    data: learningProgress, 
+    isLoading: isLoadingProgress, 
+    error: progressError,
+    refetch: refetchProgress 
+  } = useQuery({
+    queryKey: ['learnprogress', session?.user?.id, learningId],
+    queryFn: async () => {
+      if (!session?.user?.id || !learningId) return null;
+      
+      console.log('🔍 Fetching learning progress for:', {
+        userId: session.user.id,
+        learningId: learningId
+      });
+      
+      try {
+        const response = await api.get(`/learnprogress/user/${session.user.id}/learning/${learningId}`);
+        console.log('✅ Learning progress found:', {
+          currentNode: response.data?.currentNode,
+          createdAt: response.data?.createdAt,
+          updatedAt: response.data?.updatedAt,
+          fullData: response.data
+        });
+        return response.data;
+      } catch (error: any) {
+        // If 404, it means no progress exists yet, which is fine
+        if (error.response?.status === 404) {
+          console.log('📝 No learning progress found (404) - user hasn\'t started this learning yet');
+          return null;
+        }
+        console.error('❌ Error fetching learning progress:', error);
+        throw error;
+      }
+    },
+    enabled: !!session?.user?.id && !!learningId,
+    retry: false, // Don't retry on 404
+    staleTime: 0, // Always refetch to get latest progress
+    gcTime: 0, // Don't cache so we always get fresh data (replaces cacheTime in newer versions)
+  });
+
+  // Create progress mutation (only for new progress)
   const createProgressMutation = useMutation({
     mutationFn: async (data: { userId: string; learningId: string; currentNode: string }) => {
-      const response = await api.post('/learnprogress/create-or-update', data);
+      const response = await api.post('/learnprogress', data); // Use POST for create only
       return response.data;
     },
     onSuccess: (data) => {
-      console.log('Learn progress created/updated successfully:', data);
+      console.log('New learn progress created successfully:', data);
     },
     onError: (error) => {
-      console.error('Failed to create/update learn progress:', error);
+      console.error('Failed to create learn progress:', error);
     },
   });
 
-  // Create learn progress when user visits the page
+  // Create learn progress when user visits the page (only if none exists)
   useEffect(() => {
-    if (session?.user?.id && learningId && learningData?.learning?.nodes?.length > 0) {
-      // Sort nodes by creation date to maintain order
-      const sortedNodes = [...learningData.learning.nodes].sort((a: any, b: any) => 
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      );
-      
-      // Find the first learning node (not start or end)
-      const firstLearningNode = sortedNodes.find((node: any) => 
-        node.type !== 'start' && node.type !== 'end'
-      );
-      
-      if (firstLearningNode) {
-        console.log('Creating learn progress for user:', session.user.id, 'learning:', learningId, 'node:', firstLearningNode.id);
-        createProgressMutation.mutate({
-          userId: session.user.id,
-          learningId: learningId,
-          currentNode: firstLearningNode.id,
-        });
-      }
+    console.log('🔄 Progress creation effect triggered:', {
+      hasSession: !!session?.user?.id,
+      hasLearningId: !!learningId,
+      hasLearningData: !!learningData?.learning?.nodes?.length,
+      learningProgress: learningProgress,
+      isLoadingProgress: isLoadingProgress,
+      progressLoaded: !isLoadingProgress
+    });
+
+    // Wait for all data to be loaded before making decisions
+    if (!session?.user?.id || !learningId || !learningData?.learning?.nodes?.length) {
+      console.log('⏳ Waiting for data to load...');
+      return;
     }
-  }, [session?.user?.id, learningId, learningData]);
+
+    // If we're still loading existing progress, wait
+    if (isLoadingProgress) {
+      console.log('⏳ Still loading existing progress...');
+      return;
+    }
+
+    // Check if progress already exists
+    if (learningProgress) {
+      console.log('📋 Learning progress found, not creating new:', {
+        currentNode: learningProgress?.currentNode,
+        updatedAt: learningProgress?.updatedAt
+      });
+      return; // Don't create new progress if it already exists
+    }
+
+    // Only create new progress if we're sure none exists
+    console.log('🆕 No existing progress found, creating new...');
+
+    // Sort nodes by creation date to maintain order
+    const sortedNodes = [...learningData.learning.nodes].sort((a: any, b: any) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    
+    // Find the first learning node (not start or end)
+    const firstLearningNode = sortedNodes.find((node: any) => 
+      node.type !== 'start' && node.type !== 'end'
+    );
+    
+    if (firstLearningNode) {
+      console.log('🚀 Creating new learn progress for user:', session.user.id, 'learning:', learningId, 'node:', firstLearningNode.id);
+      createProgressMutation.mutate({
+        userId: session.user.id,
+        learningId: learningId,
+        currentNode: firstLearningNode.id,
+      });
+    }
+  }, [session?.user?.id, learningId, learningData, isLoadingProgress, learningProgress]);
 
   // Initialize speech recognition
   useEffect(() => {
@@ -283,7 +355,14 @@ export default function SkillLearningPage() {
       )}
       
       <div className="relative z-10 pt-16 h-screen overflow-hidden">
-        <SkillLearningFlow skillId={learningId} learningData={learningData} />
+          <SkillLearningFlow 
+            skillId={learningId} 
+            learningData={learningData} 
+            userId={session?.user?.id}
+            learningProgress={learningProgress}
+            isLoadingProgress={isLoadingProgress}
+            refetchProgress={refetchProgress}
+          />
       </div>
     </div>
   );
