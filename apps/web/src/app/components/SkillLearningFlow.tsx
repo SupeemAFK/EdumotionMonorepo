@@ -14,7 +14,7 @@ import {
 } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import { motion, AnimatePresence } from "motion/react";
-import { FaPlay, FaPause, FaCheck, FaLock, FaArrowLeft, FaBookOpen, FaClock, FaUser } from "react-icons/fa";
+import { FaPlay, FaPause, FaCheck, FaLock, FaArrowLeft, FaBookOpen, FaClock, FaUser, FaRunning, FaSearch, FaRobot, FaVolumeUp, FaStar, FaThumbsUp, FaLightbulb } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import SkillLearningNode from "./SkillLearningNode";
 import LearningWebcam from "./LearningWebcam";
@@ -552,6 +552,29 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<'success' | 'error' | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingText, setSpeakingText] = useState('');
+  const [typedText, setTypedText] = useState('');
+  
+  // Typing effect for TTS text
+  useEffect(() => {
+    if (!isSpeaking || !speakingText) {
+      setTypedText('');
+      return;
+    }
+
+    let index = 0;
+    const interval = setInterval(() => {
+      if (index <= speakingText.length) {
+        setTypedText(speakingText.slice(0, index));
+        index++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 50); // Typing speed
+
+    return () => clearInterval(interval);
+  }, [isSpeaking, speakingText]);
   
   // Log component render state for debugging
   console.log('🔄 SkillLearningFlow rendering with:', {
@@ -751,6 +774,42 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
     }
   }, [learningProgress, isLoadingProgress, learningData, setNodes]);
 
+  // Running person animation component
+  const RunningPersonAnimation = () => (
+    <div className="flex items-center gap-1 relative w-16 h-6">
+      <motion.div
+        className="absolute"
+        animate={{
+          x: [0, 45],
+        }}
+        transition={{
+          duration: 1.5,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      >
+        <FaRunning className="text-white text-sm" />
+      </motion.div>
+      <div className="flex items-center gap-1 ml-12">
+        {[...Array(3)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="w-1 h-1 bg-white rounded-full"
+            animate={{
+              opacity: [0.3, 1, 0.3],
+              scale: [0.8, 1.2, 0.8],
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              delay: i * 0.2,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     const typedNode = node as Node<SkillNodeData>;
     // Prevent clicking on locked nodes, start nodes, or end nodes
@@ -882,16 +941,24 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
           setCheckResult(null);
         }, 2000);
         
-      } else {
-        console.log('❌ Answer is incorrect.');
-        console.log('💡 Suggestions:', result.external_api_response?.suggestions);
-        setCheckResult('error');
-        
-        // Auto-hide error state after 3 seconds
-        setTimeout(() => {
-          setCheckResult(null);
-        }, 3000);
-      }
+              } else {
+          console.log('❌ Answer is incorrect.');
+          const suggestions_th = result.external_api_response?.suggestions_th;
+          console.log('💡 Suggestions (Thai):', suggestions_th);
+          setCheckResult('error');
+          
+          // Send Thai suggestions to TTS API
+          if (suggestions_th && suggestions_th.trim()) {
+            sendToTTS(suggestions_th);
+          } else {
+            console.log('⚠️ No Thai suggestions available for TTS');
+          }
+          
+          // Auto-hide error state after 3 seconds
+          setTimeout(() => {
+            setCheckResult(null);
+          }, 3000);
+        }
       
     } catch (error) {
       console.error('💥 Error calling VLM inference API:', error);
@@ -905,6 +972,69 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
       setIsChecking(false);
     }
   }, [nodes, skillId, setNodes, setSelectedNode]);
+
+  // Function to send suggestions to TTS API and play audio
+  const sendToTTS = async (suggestions: string) => {
+    try {
+      console.log('🔊 Sending suggestions to TTS API:', suggestions);
+      
+      // Start speaking UI
+      setIsSpeaking(true);
+      setSpeakingText(suggestions);
+      
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: suggestions
+        }),
+      });
+      
+      if (response.ok) {
+        console.log('✅ TTS request successful - received audio file');
+        
+        // Get audio blob and play it
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        const audio = new Audio(audioUrl);
+        audio.onloadeddata = () => {
+          console.log('🎵 TTS audio loaded, playing Thai suggestions...');
+          audio.play().catch(err => {
+            console.error('❌ Failed to play TTS audio:', err);
+            setIsSpeaking(false);
+            setSpeakingText('');
+          });
+        };
+        
+        audio.onended = () => {
+          console.log('🎵 TTS audio finished playing');
+          URL.revokeObjectURL(audioUrl); // Clean up
+          setIsSpeaking(false);
+          setSpeakingText('');
+        };
+        
+        audio.onerror = (err) => {
+          console.error('❌ TTS audio playback error:', err);
+          URL.revokeObjectURL(audioUrl); // Clean up
+          setIsSpeaking(false);
+          setSpeakingText('');
+        };
+        
+      } else {
+        console.error('❌ TTS request failed:', response.status, response.statusText);
+        setIsSpeaking(false);
+        setSpeakingText('');
+      }
+      
+    } catch (error) {
+      console.error('💥 Error sending to TTS API:', error);
+      setIsSpeaking(false);
+      setSpeakingText('');
+    }
+  };
 
   // Function to play success sound
   const playSuccessSound = () => {
@@ -1123,8 +1253,10 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="w-96 bg-white/95 backdrop-blur-sm border-l border-gray-200/50 p-4 overflow-y-auto space-y-6 shadow-lg"
+            className="w-96 bg-white/95 backdrop-blur-sm border-l border-gray-200/50 shadow-lg flex flex-col"
+            style={{ height: 'calc(100vh - 120px)' }}
           >
+            <div className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0">
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
@@ -1165,51 +1297,79 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
             <motion.button
               onClick={() => handleCheckCorrect(currentNode.id)}
               disabled={isChecking}
-              className={`w-full flex items-center justify-center gap-2 p-3 rounded-lg font-medium transition-all duration-200 text-white ${
+              className={`relative w-full flex items-center justify-center gap-3 p-4 rounded-xl font-semibold transition-all duration-300 text-white shadow-lg overflow-hidden ${
                 checkResult === 'success' 
-                  ? 'bg-green-600 hover:bg-green-700' 
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-200' 
                   : checkResult === 'error'
-                  ? 'bg-red-600 hover:bg-red-700'
+                  ? 'bg-gradient-to-r from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 shadow-orange-200'
                   : isChecking
-                  ? 'bg-gray-600 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700'
+                  ? 'bg-gradient-to-r from-purple-500 to-indigo-600 cursor-not-allowed shadow-purple-200'
+                  : 'bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 shadow-blue-200'
               }`}
-              whileHover={{ scale: isChecking ? 1 : 1.02 }}
-              whileTap={{ scale: isChecking ? 1 : 0.98 }}
+              whileHover={{ scale: isChecking ? 1 : 1.03, y: isChecking ? 0 : -2 }}
+              whileTap={{ scale: isChecking ? 1 : 0.97 }}
             >
+              {/* Shimmer effect for loading */}
+              {isChecking && (
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                  animate={{ x: [-100, 300] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+              )}
+              
               {isChecking ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Checking...
+                  <RunningPersonAnimation />
+                  <span className="ml-2 text-sm">AI is analyzing your performance...</span>
                 </>
               ) : checkResult === 'success' ? (
                 <>
-              <FaCheck className="text-sm" />
-                  Correct! ✨
+                  <motion.div
+                    animate={{ 
+                      scale: [1, 1.3, 1],
+                      rotate: [0, 360, 0]
+                    }}
+                    transition={{ duration: 0.6, repeat: 2 }}
+                  >
+                    <FaStar className="text-xl" />
+                  </motion.div>
+                  <span className="font-bold">Excellent! Moving to next step!</span>
                 </>
               ) : checkResult === 'error' ? (
                 <>
-                  <span className="text-sm">❌</span>
-                  Try Again
+                  <motion.div
+                    animate={{ 
+                      rotate: [-15, 15, -15],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 0.4, repeat: 3 }}
+                  >
+                    <FaLightbulb className="text-xl" />
+                  </motion.div>
+                  <span className="font-medium">Let's learn together - Listen to the tips!</span>
                 </>
               ) : (
                 <>
-                  <FaCheck className="text-sm" />
-                  Check if Correct
+                  <motion.div
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <FaCheck className="text-lg" />
+                  </motion.div>
+                  <span className="font-semibold">Check if Correct</span>
+                  <motion.div
+                    className="absolute right-3"
+                    animate={{ x: [0, 5, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    ✨
+                  </motion.div>
                 </>
               )}
             </motion.button>
 
-            {/* Test Button for Development */}
-            <motion.button
-              onClick={() => handleTestSuccess(currentNode.id)}
-              disabled={isChecking}
-              className="w-full flex items-center justify-center gap-2 p-2 mt-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 rounded-lg font-medium transition-all duration-200 text-white text-sm"
-              whileHover={{ scale: isChecking ? 1 : 1.02 }}
-              whileTap={{ scale: isChecking ? 1 : 0.98 }}
-            >
-              🧪 Test Success
-            </motion.button>
+
 
             {/* Learning Webcam */}
             <LearningWebcam
@@ -1222,6 +1382,117 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
                 console.log('Analysis result:', result);
               }}
             />
+
+            {/* AI Teacher Coach UI - Shows when TTS is speaking or when analyzing */}
+            <AnimatePresence>
+              {(isSpeaking || isChecking) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-4 border border-blue-500/30 shadow-lg"
+                >
+                  <div className="flex items-start gap-3">
+                    {/* AI Avatar */}
+                    <motion.div
+                      className="flex-shrink-0"
+                      animate={{ 
+                        scale: [1, 1.1, 1],
+                        rotate: [0, 2, -2, 0]
+                      }}
+                      transition={{ 
+                        duration: 2, 
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                        {isChecking && !isSpeaking ? (
+                          <FaSearch className="text-white text-xl" />
+                        ) : (
+                          <FaRobot className="text-white text-xl" />
+                        )}
+                      </div>
+                    </motion.div>
+
+                    {/* Speaking Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <motion.div
+                          className="flex items-center gap-1"
+                          animate={{ opacity: [0.5, 1, 0.5] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                        >
+                          <div className="w-2 h-2 bg-white rounded-full"></div>
+                          <div className="w-2 h-2 bg-white rounded-full animation-delay-200"></div>
+                          <div className="w-2 h-2 bg-white rounded-full animation-delay-400"></div>
+                        </motion.div>
+                        <span className="text-white/90 text-sm font-medium">
+                          {isChecking && !isSpeaking ? 'AI Teacher is analyzing...' : 'AI Teacher is speaking...'}
+                        </span>
+                      </div>
+
+                      {/* Content based on state */}
+                      {isChecking && !isSpeaking ? (
+                        /* Analyzing State */
+                        <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                          <div className="flex items-center gap-2 mb-2">
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                            >
+                              <FaSearch className="text-white text-sm" />
+                            </motion.div>
+                            <span className="text-white text-sm">Taking a look at your performance...</span>
+                          </div>
+                          <p className="text-white/80 text-xs">
+                            I'm carefully reviewing your demonstration. Just a moment while I provide personalized feedback!
+                          </p>
+                        </div>
+                      ) : (
+                        /* Speaking State */
+                        <>
+                          <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                            <p className="text-white text-sm leading-relaxed">
+                              {typedText}
+                              <motion.span
+                                className="inline-block w-0.5 h-4 bg-white ml-1"
+                                animate={{ opacity: [0, 1, 0] }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                              />
+                            </p>
+                          </div>
+
+                          {/* Sound waves animation */}
+                          <div className="flex items-center gap-1 mt-2">
+                            {[...Array(5)].map((_, i) => (
+                              <motion.div
+                                key={i}
+                                className="w-1 bg-white/60 rounded-full"
+                                animate={{
+                                  height: [4, 12, 4],
+                                }}
+                                transition={{
+                                  duration: 0.8,
+                                  repeat: Infinity,
+                                  delay: i * 0.1,
+                                  ease: "easeInOut"
+                                }}
+                              />
+                            ))}
+                            <span className="text-white/70 text-xs ml-2 flex items-center gap-1">
+                              <FaVolumeUp className="text-xs" />
+                              Playing audio feedback
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            </div>
           </motion.div>
         )}
       </div>
@@ -1338,9 +1609,9 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
                         checkResult === 'success' 
                           ? 'bg-green-600 hover:bg-green-700' 
                           : checkResult === 'error'
-                          ? 'bg-red-600 hover:bg-red-700'
+                          ? 'bg-orange-500 hover:bg-orange-600'
                           : isChecking
-                          ? 'bg-gray-600 cursor-not-allowed'
+                          ? 'bg-purple-600 cursor-not-allowed'
                           : 'bg-blue-600 hover:bg-blue-700'
                       }`}
                       whileHover={{ scale: isChecking ? 1 : 1.02 }}
@@ -1348,22 +1619,32 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
                     >
                       {isChecking ? (
                         <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          Checking...
+                          <RunningPersonAnimation />
+                          <span className="ml-2">AI is analyzing...</span>
                         </>
                       ) : checkResult === 'success' ? (
                         <>
-                  <FaCheck className="text-sm" />
-                          Correct! ✨
+                          <motion.div
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ duration: 0.5, repeat: 3 }}
+                          >
+                            <FaStar className="text-lg" />
+                          </motion.div>
+                          Great job!
                         </>
                       ) : checkResult === 'error' ? (
                         <>
-                          <span className="text-sm">❌</span>
-                          Try Again
+                          <motion.div
+                            animate={{ rotate: [-10, 10, -10] }}
+                            transition={{ duration: 0.5, repeat: 2 }}
+                          >
+                            <FaLightbulb className="text-lg" />
+                          </motion.div>
+                          Listen to the tips!
                         </>
                       ) : (
                         <>
-                          <FaCheck className="text-sm" />
+                  <FaCheck className="text-sm" />
                           Check if Correct
                         </>
                       )}
@@ -1379,18 +1660,7 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
                 </motion.button>
                 </div>
                 
-                {/* Test Button for Development - Only show for current node */}
-                {selectedNode.data.status === 'current' && (
-                  <motion.button
-                    onClick={() => handleTestSuccess(selectedNode.id)}
-                    disabled={isChecking}
-                    className="w-full flex items-center justify-center gap-2 p-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 rounded-lg font-medium transition-all duration-200 text-white text-sm"
-                    whileHover={{ scale: isChecking ? 1 : 1.02 }}
-                    whileTap={{ scale: isChecking ? 1 : 0.98 }}
-                  >
-                    🧪 Test Success (Simulate YES)
-                  </motion.button>
-                )}
+
               </div>
             </motion.div>
           </motion.div>
@@ -1450,6 +1720,20 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Floating Test Button - Bottom Left */}
+      {currentNode && (
+        <motion.button
+          onClick={() => handleTestSuccess(currentNode.id)}
+          disabled={isChecking}
+          className="fixed bottom-4 left-4 w-10 h-10 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 rounded-full shadow-lg flex items-center justify-center text-white text-xs font-bold transition-all duration-200 z-50"
+          whileHover={{ scale: isChecking ? 1 : 1.1 }}
+          whileTap={{ scale: isChecking ? 1 : 0.9 }}
+          title="Test Success (Development)"
+        >
+          🧪
+        </motion.button>
+      )}
     </div>
   );
 }

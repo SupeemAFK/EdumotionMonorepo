@@ -209,20 +209,7 @@ export default function LearningWebcam({
           {isStreaming ? 'Stop Session' : 'Start Session'}
         </motion.button>
 
-        <motion.button
-          onClick={toggleAnalysis}
-          disabled={!isStreaming}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            analysisEnabled 
-              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-              : 'bg-gray-600 hover:bg-gray-700 text-white'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          {analysisEnabled ? <FaEye /> : <FaEyeSlash />}
-          {analysisEnabled ? 'Stop Analysis' : 'Start Analysis'}
-        </motion.button>
+
       </div>
 
       {/* Analysis Results */}
