@@ -27,6 +27,7 @@ interface SkillLearningFlowProps {
   learningProgress?: any;
   isLoadingProgress?: boolean;
   refetchProgress?: () => void;
+  speechMatch: boolean;
 }
 
 interface SkillNodeData extends Record<string, unknown> {
@@ -548,7 +549,7 @@ const getSkillData = (skillId: string) => {
 
 const nodeTypes = { skillLearningNode: SkillLearningNode };
 
-function SkillLearningFlowContent({ skillId, learningData, userId, learningProgress, isLoadingProgress, refetchProgress }: SkillLearningFlowProps) {
+function SkillLearningFlowContent({ skillId, learningData, userId, learningProgress, isLoadingProgress, refetchProgress, speechMatch }: SkillLearningFlowProps) {
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<'success' | 'error' | null>(null);
@@ -836,6 +837,12 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
     
     setSelectedNode(typedNode);
   }, []);
+
+  useEffect(() => {
+    if (speechMatch && currentNode) {
+      handleCheckCorrect(currentNode.id);
+    }
+  }, [speechMatch]);
 
   const handleCheckCorrect = useCallback(async (nodeId: string) => {
     console.log('🔍 Check if correct clicked for node:', nodeId);
@@ -1738,7 +1745,7 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
   );
 }
 
-export default function SkillLearningFlow({ skillId, learningData, userId, learningProgress, isLoadingProgress, refetchProgress }: SkillLearningFlowProps) {
+export default function SkillLearningFlow({ skillId, learningData, userId, learningProgress, isLoadingProgress, refetchProgress, speechMatch }: SkillLearningFlowProps) {
   return (
     <ReactFlowProvider>
       <SkillLearningFlowContent 
@@ -1748,6 +1755,7 @@ export default function SkillLearningFlow({ skillId, learningData, userId, learn
         learningProgress={learningProgress}
         isLoadingProgress={isLoadingProgress}
         refetchProgress={refetchProgress}
+        speechMatch={speechMatch}
       />
     </ReactFlowProvider>
   );

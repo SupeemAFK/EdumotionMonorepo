@@ -67,6 +67,7 @@ export default function SkillLearningPage() {
   // Speech recognition state
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechMatch, setSpeechMatch] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // Fetch learning data
@@ -237,6 +238,11 @@ export default function SkillLearningPage() {
         // Log final speech results
         if (finalTranscript) {
           console.log('🎤 Speech Recognition (Final):', finalTranscript.trim());
+
+          const words = ["แบบนี้ถูกไหม", "แบบนี้ใช่ไหม", "ตรวจสอบให้หน่อย", "ตรวจสอบความถูกต้อง"]
+          if (words.includes(finalTranscript.trim())) {
+            setSpeechMatch(true);
+          }
         }
         
         // Log interim results (optional - shows real-time transcription)
@@ -255,6 +261,7 @@ export default function SkillLearningPage() {
       recognition.onend = () => {
         console.log('🎤 Speech recognition ended');
         setIsListening(false);
+        setSpeechMatch(false);
         
         // Restart recognition automatically to keep listening continuously
         if (recognitionRef.current) {
@@ -365,6 +372,7 @@ export default function SkillLearningPage() {
             learningProgress={learningProgress}
             isLoadingProgress={isLoadingProgress}
             refetchProgress={refetchProgress}
+            speechMatch={speechMatch}
           />
       </div>
     </div>
