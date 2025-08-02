@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   ReactFlow,
   Background,
@@ -553,6 +553,17 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
   const [isChecking, setIsChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<'success' | 'error' | null>(null);
   
+  // Log component render state for debugging
+  console.log('🔄 SkillLearningFlow rendering with:', {
+    skillId,
+    hasLearningData: !!learningData,
+    hasUserId: !!userId,
+    hasLearningProgress: !!learningProgress,
+    isLoadingProgress,
+    learningProgressCurrentNode: learningProgress?.currentNode,
+    timestamp: new Date().toISOString()
+  });
+  
   // Convert API data to the format expected by the component
   const convertApiDataToSkillData = (apiData: any) => {
     if (!apiData?.learning) {
@@ -708,11 +719,37 @@ function SkillLearningFlowContent({ skillId, learningData, userId, learningProgr
     };
   };
 
+  // If we're still loading progress and we have a user, don't render yet
+  if (userId && isLoadingProgress) {
+    console.log('⏳ SkillLearningFlow: Waiting for progress to load before rendering nodes');
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">Loading progress...</p>
+        </div>
+      </div>
+    );
+  }
+
   const skillData = learningData ? convertApiDataToSkillData(learningData) : getSkillData(skillId);
   const [nodes, setNodes, onNodesChange] = useNodesState(skillData.nodes);
   const [edges, , onEdgesChange] = useEdgesState(skillData.edges);
   const [selectedNode, setSelectedNode] = useState<Node<SkillNodeData> | null>(null);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+
+  // Update nodes when learning progress changes
+  useEffect(() => {
+    if (learningData && !isLoadingProgress) {
+      console.log('🔄 Learning progress changed, updating node states:', {
+        currentNode: learningProgress?.currentNode,
+        hasProgress: !!learningProgress
+      });
+      
+      const updatedSkillData = convertApiDataToSkillData(learningData);
+      setNodes(updatedSkillData.nodes);
+    }
+  }, [learningProgress, isLoadingProgress, learningData, setNodes]);
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     const typedNode = node as Node<SkillNodeData>;
