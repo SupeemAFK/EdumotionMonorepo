@@ -183,6 +183,9 @@ export class LearningService {
             positionX: nodeDto.positionX,
             positionY: nodeDto.positionY,
             algorithm: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : nodeDto.algorithm,
+            vlmPrompt: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : nodeDto.vlmPrompt,
+            objectName: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : nodeDto.objectName,
+
             type: nodeDto.type,
             threshold: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : nodeDto.threshold,
             updatedAt: new Date(),
@@ -197,6 +200,9 @@ export class LearningService {
             positionY: nodeDto.positionY,
             learningId: saveLearningGraphDto.learningId,
             algorithm: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : nodeDto.algorithm,
+            vlmPrompt: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : nodeDto.vlmPrompt,
+            objectName: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : nodeDto.objectName,
+
             type: nodeDto.type,
             threshold: (nodeDto.type === 'start' || nodeDto.type === 'end') ? null : nodeDto.threshold,
             createdAt: new Date(),

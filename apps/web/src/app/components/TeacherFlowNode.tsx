@@ -111,6 +111,24 @@ export default function TeacherFlowNode({ data, selected }: NodeProps<Node<FlowN
             <div className="text-xs text-gray-500">
               Threshold: {(data.threshold * 100).toFixed(0)}%
             </div>
+            {/* Model-specific Information Display */}
+            {data.aiModel === 'vision-language' && data.vlmPrompt && (
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                <div className="font-medium text-blue-800 mb-1">VLM Prompt:</div>
+                <div className="text-blue-700 line-clamp-2">
+                  {data.vlmPrompt.length > 80 ? `${data.vlmPrompt.substring(0, 80)}...` : data.vlmPrompt}
+                </div>
+              </div>
+            )}
+            {data.aiModel === 'object-detection' && data.objectName && (
+              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
+                <div className="font-medium text-green-800 mb-1">Target Object:</div>
+                <div className="text-green-700 font-semibold">
+                  {data.objectName}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 

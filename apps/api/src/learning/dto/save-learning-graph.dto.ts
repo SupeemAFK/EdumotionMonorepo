@@ -49,6 +49,14 @@ export class NodeDto {
     @IsOptional()
     @IsString()
     originalFileName?: string; // Original video file name for segments
+    
+    @IsOptional()
+    @IsString()
+    vlmPrompt?: string; // Vision Language Model prompt - only required when algorithm is 'vision-language'
+    
+    @IsOptional()
+    @IsString()
+    objectName?: string; // Object name to detect - only required when algorithm is 'object-detection'
 }
 
 export class EdgeDto {

@@ -97,6 +97,20 @@ export default function FlowSidebar({ isOpen, onClose, selectedNode, onUpdateNod
     }
   };
 
+  const handleVlmPromptChange = (vlmPrompt: string) => {
+    if (localData) {
+      setLocalData({ ...localData, vlmPrompt });
+    }
+  };
+
+  const handleObjectNameChange = (objectName: string) => {
+    if (localData) {
+      setLocalData({ ...localData, objectName });
+    }
+  };
+
+
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || !localData) return;
@@ -418,6 +432,66 @@ export default function FlowSidebar({ isOpen, onClose, selectedNode, onUpdateNod
                 </div>
               </div>
             )}
+
+            {/* VLM Prompt Input - Only for Vision Language Model */}
+            {localData.aiModel === 'vision-language' && (
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Vision Language Model Prompt
+                </label>
+                <textarea
+                  value={localData.vlmPrompt || ''}
+                  onChange={(e) => handleVlmPromptChange(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  placeholder="Enter the prompt for the vision language model to analyze the video content..."
+                />
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <IoInformationCircle className="w-4 h-4 text-blue-600 mt-0.5" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium mb-1">VLM Prompt Guidelines:</p>
+                      <ul className="text-xs space-y-1">
+                        <li>• Be specific about what you want the model to detect or analyze</li>
+                        <li>• Include context about the learning objective</li>
+                        <li>• Use clear, descriptive language for better results</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Object Name Input - Only for Object Detection */}
+            {localData.aiModel === 'object-detection' && (
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Object Name to Detect
+                </label>
+                <input
+                  type="text"
+                  value={localData.objectName || ''}
+                  onChange={(e) => handleObjectNameChange(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter the name of the object to detect (e.g., 'person', 'car', 'book')..."
+                />
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <IoInformationCircle className="w-4 h-4 text-green-600 mt-0.5" />
+                    <div className="text-sm text-green-800">
+                      <p className="font-medium mb-1">Object Detection Guidelines:</p>
+                      <ul className="text-xs space-y-1">
+                        <li>• Use common object names (person, car, chair, etc.)</li>
+                        <li>• Be specific but use standard terminology</li>
+                        <li>• Single objects work better than complex scenes</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+
 
             {/* Model Details */}
             {selectedModel && (

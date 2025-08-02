@@ -94,6 +94,8 @@ model node {
   positionY      Float
   learningId     String
   algorithm      String?
+  vlmPrompt      String?
+  objectName     String?
   type           String
   threshold      Float?
   createdAt      DateTime

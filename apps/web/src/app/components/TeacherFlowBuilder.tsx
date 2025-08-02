@@ -98,6 +98,8 @@ export type FlowNodeData = {
   description: string;
   aiModel: AIModelType | null;
   threshold: number;
+  vlmPrompt?: string; // Vision Language Model prompt - only used when aiModel is 'vision-language'
+  objectName?: string; // Object name to detect - only used when aiModel is 'object-detection'
   isStartNode?: boolean;
   isEndNode?: boolean;
   files: UploadedFile[];
@@ -112,6 +114,9 @@ const initialNodes: Node<FlowNodeData>[] = [
       description: "Beginning of the learning flow",
       aiModel: null,
       threshold: 0.8,
+      vlmPrompt: "",
+      objectName: "",
+
       isStartNode: true,
       files: [],
     },
@@ -222,6 +227,8 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
             aiModel: (node.type === 'start' || node.type === 'end') ? null : 
                      (node.algorithm === 'basic' || !node.algorithm) ? null : (node.algorithm as AIModelType),
             threshold: (node.type === 'start' || node.type === 'end') ? 0.8 : (node.threshold || 0.8),
+            vlmPrompt: (node.type === 'start' || node.type === 'end') ? "" : (node.vlmPrompt || ""),
+            objectName: (node.type === 'start' || node.type === 'end') ? "" : (node.objectName || ""),
             isStartNode: node.type === 'start',
             isEndNode: node.type === 'end',
             files: [
@@ -716,6 +723,9 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
           description: 'End of the learning flow',
         aiModel: null,
         threshold: 0.8,
+        vlmPrompt: "",
+        objectName: "",
+  
           isEndNode: true,
         files: [],
       },
@@ -741,6 +751,9 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
         description: description || 'New learning step',
         aiModel: null,
         threshold: 0.8,
+        vlmPrompt: "",
+        objectName: "",
+  
         isEndNode: false,
         files: [{
           id: `video-${Date.now()}`,
@@ -864,6 +877,13 @@ function FlowBuilder({ learningId }: FlowBuilderProps) {
         if (nodeType === 'step') {
           nodeData.algorithm = node.data.aiModel || 'basic';
           nodeData.threshold = node.data.threshold || 0.8;
+          // Add model-specific fields based on AI model type
+          if (node.data.aiModel === 'vision-language' && node.data.vlmPrompt) {
+            nodeData.vlmPrompt = node.data.vlmPrompt;
+          }
+          if (node.data.aiModel === 'object-detection' && node.data.objectName) {
+            nodeData.objectName = node.data.objectName;
+          }
         }
 
         // Only add file field names for step nodes
